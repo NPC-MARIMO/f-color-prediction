@@ -1,8 +1,22 @@
 import React from 'react';
 import { Box, Typography, Button, Container, Grid, Chip } from '@mui/material';
 import { Play, Crown, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const {isAuthenticated} = useSelector((state) => state.auth);
+  
+
+  const handleStartQuest = () => {
+    if (isAuthenticated) {
+      navigate('/user/game');
+    } else {
+      navigate('/auth/login');
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -55,6 +69,7 @@ const HeroSection = () => {
                 size="large"
                 startIcon={<Play size={20} />}
                 sx={{ minWidth: 200 }}
+                onClick={handleStartQuest}
               >
                 Start Your Quest
               </Button>

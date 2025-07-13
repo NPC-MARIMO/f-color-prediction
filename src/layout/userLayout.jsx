@@ -2,14 +2,16 @@ import React from 'react'
 import Navigation from '../components/user/Navigation'
 import { Outlet } from 'react-router-dom'
 import Footer from '../components/user/Footer'
-
-export default function UserLayout() {
+const UserLayout =() => {
   return (
     <div>
-        <Navigation/>
-        <Outlet/>
-        <Footer/>
-      
+      <Navigation />
+      <div style={{ background: "#111", padding: 100}}>
+        <Outlet />
+      </div>
+      <Footer />
     </div>
-  )
+  );
 }
+
+export default UserLayout

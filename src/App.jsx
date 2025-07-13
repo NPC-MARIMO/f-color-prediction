@@ -16,6 +16,7 @@ import Dashboard from "./pages/admin/dashboard.jsx";
 import Users from "./pages/admin/users.jsx";
 import WithdrawRequests from "./pages/admin/withdrawRequests.jsx";
 import GameRounds from "./pages/admin/gameRounds.jsx";
+import GamePlay from "./pages/user/gamePlay.jsx";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true }) => {
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/user" element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
             <Route path="home" element={<Home />} />
             <Route path="game" element={<Game />} />
+            <Route path="game/play/:gameId" element={<GamePlay />} />
             <Route path="wallet" element={<Wallet />} />
             <Route path="transactions" element={<Transaction />} />
             <Route path="withdraw" element={<Withdraw />} />

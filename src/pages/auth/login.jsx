@@ -56,15 +56,15 @@ const LoginForm = () => {
     event.preventDefault();
 
     // Validation
-    if (!formData.email || !formData.password) {
+      if (!formData.email || !formData.password) {
       setLocalError("Please fill in all fields");
-      return;
-    }
+        return;
+      }
 
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      if (!/\S+@\S+\.\S+/.test(formData.email)) {
       setLocalError("Please enter a valid email address");
-      return;
-    }
+        return;
+      }
 
     try {
       const result = await dispatch(Login({

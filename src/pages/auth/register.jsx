@@ -92,8 +92,8 @@ const SignupForm = () => {
       
       if (SendOtp.fulfilled.match(result)) {
         console.log('OTP sent successfully, setting otpSent to true');
-        setOtpSent(true);
-        setSuccess("OTP sent to your email!");
+      setOtpSent(true);
+      setSuccess("OTP sent to your email!");
       } else {
         console.log('OTP send failed:', result.payload);
         setLocalError(result.payload?.message || "Failed to send OTP. Please try again.");
@@ -134,21 +134,21 @@ const SignupForm = () => {
     event.preventDefault();
     setSuccess("");
 
-    // Validation
+      // Validation
     if (!formData.password || !formData.confirmPassword) {
       setLocalError("Please fill in all fields");
-      return;
-    }
+        return;
+      }
 
-    if (formData.password !== formData.confirmPassword) {
+      if (formData.password !== formData.confirmPassword) {
       setLocalError("Passwords do not match");
-      return;
-    }
+        return;
+      }
 
-    if (formData.password.length < 6) {
+      if (formData.password.length < 6) {
       setLocalError("Password must be at least 6 characters");
-      return;
-    }
+        return;
+      }
 
     try {
       const result = await dispatch(Register({

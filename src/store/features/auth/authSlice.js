@@ -5,13 +5,13 @@ import { SendOtp, VerifyOtp, Register, Login } from "./authFeatures";
 const getInitialState = () => {
   try {
     const authData = localStorage.getItem('auth');
-    console.log('localStorage auth data:', authData);
+    // console.log('localStorage auth data:', authData);
     if (authData) {
       const parsed = JSON.parse(authData);
-      console.log('Parsed auth data:', parsed);
+      // console.log('Parsed auth data:', parsed);
       // Only restore authentication if we have valid user data
       if (parsed.user && parsed.isAuthenticated) {
-        console.log('Restoring auth state from localStorage');
+        // console.log('Restoring auth state from localStorage');
         return {
           user: parsed.user,
           isAuthenticated: parsed.isAuthenticated,
@@ -20,10 +20,10 @@ const getInitialState = () => {
           verified: parsed.verified || false,
         };
       } else {
-        console.log('Invalid auth data in localStorage, using default state');
+        // console.log('Invalid auth data in localStorage, using default state');
       }
     } else {
-      console.log('No auth data in localStorage');
+      // console.log('No auth data in localStorage');
     }
   } catch (error) {
     console.error('Error parsing auth data from localStorage:', error);

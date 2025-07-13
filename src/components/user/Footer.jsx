@@ -16,7 +16,7 @@ const Footer = () => {
                 variant="h6"
                 sx={{ ml: 1, fontWeight: 700, color: "#D4AF37" }}
               >
-                ChromaQuest
+                Win2Win
               </Typography>
             </Box>
             <Typography
@@ -269,7 +269,7 @@ const Footer = () => {
           }}
         >
           <Typography variant="body2" sx={{ color: "#CCCCCC" }}>
-            © {currentYear} ChromaQuest. All rights reserved. Powered by
+            © {currentYear} Win2Win. All rights reserved. Powered by
             mystical forces and advanced cryptography.
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>

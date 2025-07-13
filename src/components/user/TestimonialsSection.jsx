@@ -18,7 +18,7 @@ const testimonials = [
     title: "Legendary Color Seer",
     avatar: "🧝‍♀️",
     rating: 5,
-    text: "ChromaQuest transformed my understanding of color prophecy. The ChromaOrb never lies, and the rewards are beyond magical! I've earned more gold in a month than in years of traditional questing.",
+    text: "Win2Win transformed my understanding of color prophecy. The ChromaOrb never lies, and the rewards are beyond magical! I've earned more gold in a month than in years of traditional questing.",
   },
   {
     id: "testimonial-2",
@@ -26,7 +26,7 @@ const testimonials = [
     title: "Knight of the Prism Order",
     avatar: "🛡️",
     rating: 5,
-    text: "As a warrior who values honor and fairness, I appreciate ChromaQuest's transparent gaming system. Every victory feels earned, and the tournaments are truly epic battles of wit and intuition.",
+    text: "As a warrior who values honor and fairness, I appreciate Win2Win's transparent gaming system. Every victory feels earned, and the tournaments are truly epic battles of wit and intuition.",
   },
   {
     id: "testimonial-3",
@@ -42,7 +42,7 @@ const testimonials = [
     title: "Master of Treasure",
     avatar: "⛏️",
     rating: 5,
-    text: "I've found more treasure here than in any dungeon! The instant payouts and fair gameplay make ChromaQuest the most trustworthy quest I've embarked upon. Highly recommended for fellow adventurers!",
+    text: "I've found more treasure here than in any dungeon! The instant payouts and fair gameplay make Win2Win the most trustworthy quest I've embarked upon. Highly recommended for fellow adventurers!",
   },
   {
     id: "testimonial-5",

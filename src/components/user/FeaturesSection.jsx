@@ -43,14 +43,18 @@ const features = [
 
 const FeaturesSection = () => {
   return (
-    <Box sx={{ py: 8, backgroundColor: '#0F0F0F' }}>
+    <Box sx={{ py: 8, backgroundColor: "#0F0F0F" }}>
       <Container maxWidth="lg">
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
+        <Box sx={{ textAlign: "center", mb: 6 }}>
           <Typography variant="h2" sx={{ mb: 2 }}>
             Legendary Game Features
           </Typography>
-          <Typography variant="body1" sx={{ fontSize: '1.2rem', maxWidth: 600, mx: 'auto' }}>
-            Discover the magical abilities that make ChromaQuest the ultimate color prediction experience
+          <Typography
+            variant="body1"
+            sx={{ fontSize: "1.2rem", maxWidth: 600, mx: "auto" }}
+          >
+            Discover the magical abilities that make Win2Win the ultimate color
+            prediction experience
           </Typography>
         </Box>
 
@@ -59,33 +63,33 @@ const FeaturesSection = () => {
             <Grid item xs={12} md={6} lg={4} key={index}>
               <Card
                 sx={{
-                  height: '100%',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    '& .feature-icon': {
+                  height: "100%",
+                  cursor: "pointer",
+                  "&:hover": {
+                    "& .feature-icon": {
                       color: feature.color,
-                      transform: 'scale(1.1)',
+                      transform: "scale(1.1)",
                     },
                   },
                 }}
               >
-                <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                <CardContent sx={{ p: 4, textAlign: "center" }}>
                   <Box
                     className="feature-icon"
                     sx={{
-                      color: '#CCCCCC',
+                      color: "#CCCCCC",
                       mb: 3,
-                      transition: 'all 0.3s ease',
-                      display: 'flex',
-                      justifyContent: 'center',
+                      transition: "all 0.3s ease",
+                      display: "flex",
+                      justifyContent: "center",
                     }}
                   >
                     {feature.icon}
                   </Box>
-                  <Typography variant="h4" sx={{ mb: 2, fontSize: '1.3rem' }}>
+                  <Typography variant="h4" sx={{ mb: 2, fontSize: "1.3rem" }}>
                     {feature.title}
                   </Typography>
-                  <Typography variant="body1" sx={{ color: '#CCCCCC' }}>
+                  <Typography variant="body1" sx={{ color: "#CCCCCC" }}>
                     {feature.description}
                   </Typography>
                 </CardContent>

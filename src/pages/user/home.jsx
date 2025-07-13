@@ -3,7 +3,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { theme } from '../../theme';
 import HeroSection from '../../components/user/HeroSection';
-import Navigation from '../../components/user/Navigation';
+// import Navigation from '../../components/user/Navigation';
 import FeaturesSection from '../../components/user/FeaturesSection';
 import HowToPlaySection from '../../components/user/HowToPlaySection';
 import TestimonialsSection from '../../components/user/TestimonialsSection';
@@ -14,7 +14,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Navigation />
+      {/* <Navigation /> */}
       <HeroSection />
       <FeaturesSection />
       <HowToPlaySection />
