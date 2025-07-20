@@ -90,10 +90,10 @@ const DepositPage = () => {
 
   const handleDeposit = async (e) => {
     e.preventDefault();
-    if (!amount || amount < 100) {
+    if (!amount || amount < 5) {
       setSnackbar({
         open: true,
-        message: "Minimum deposit amount is ₹100",
+        message: "Minimum deposit amount is ₹5",
         severity: "error",
       });
       return;
@@ -272,7 +272,7 @@ const DepositPage = () => {
                   }}
                   InputLabelProps={{ style: { color: COLORS.primary } }}
                   variant="outlined"
-                  placeholder="Enter amount (min ₹100)"
+                  placeholder="Enter amount (min ₹5)"
                 />
 
                 {/* Payment Method */}

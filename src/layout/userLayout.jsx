@@ -6,7 +6,7 @@ const UserLayout =() => {
   return (
     <div>
       <Navigation />
-      <div style={{ background: "#111", padding: 100}}>
+      <div style={{ background: "#111", }}>
         <Outlet />
       </div>
       <Footer />
