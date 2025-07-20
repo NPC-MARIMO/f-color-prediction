@@ -126,11 +126,13 @@ class ApiService {
 
   // Payment Management APIs
   async createDepositOrder(amount) {
+    // Cashfree: POST /api/payment/create-deposit-order
     const response = await this.api.post('/api/payment/create-deposit-order', { amount });
     return response.data;
   }
 
   async verifyDepositPayment(paymentData) {
+    // Cashfree: POST /api/payment/verify-deposit-payment
     const response = await this.api.post('/api/payment/verify-deposit-payment', paymentData);
     return response.data;
   }
@@ -205,6 +207,138 @@ class ApiService {
 
   async refundTransaction(transactionId) {
     const response = await this.api.post(`/api/transaction/${transactionId}/refund`);
+    return response.data;
+  }
+
+  // Admin User Management APIs
+  async getAdminUsers(page = 1, limit = 20, role = 'user', isBlocked = false, search = '') {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      role,
+      isBlocked: isBlocked.toString(),
+      search
+    });
+    const response = await this.api.get(`/api/admin/users?${params}`);
+    return response.data;
+  }
+
+  async getAdminUserById(userId) {
+    const response = await this.api.get(`/api/admin/users/${userId}`);
+    return response.data;
+  }
+
+  async blockUser(userId, reason) {
+    const response = await this.api.patch(`/api/admin/users/${userId}/block`, { reason });
+    return response.data;
+  }
+
+  // Admin Game Settings APIs
+  async getGameSettings() {
+    const response = await this.api.get('/api/admin/game/settings');
+    return response.data;
+  }
+
+  async updateGameSettings(settings) {
+    const response = await this.api.put('/api/admin/game/settings', settings);
+    return response.data;
+  }
+
+  // Admin Withdrawal Management APIs
+  async getPendingWithdrawals(page = 1, limit = 20) {
+    const response = await this.api.get(`/api/admin/withdrawals/pending?page=${page}&limit=${limit}`);
+    return response.data;
+  }
+
+  async approveWithdrawal(transactionId, notes) {
+    const response = await this.api.post(`/api/admin/withdrawals/${transactionId}/approve`, { notes });
+    return response.data;
+  }
+
+  async rejectWithdrawal(transactionId, reason) {
+    const response = await this.api.post(`/api/admin/withdrawals/${transactionId}/reject`, { reason });
+    return response.data;
+  }
+
+  // Admin Dashboard API
+  async getAdminDashboard() {
+    const response = await this.api.get('/api/admin/dashboard');
+    return response.data;
+  }
+
+  // Admin Transaction APIs
+  async getAdminTransactions(page = 1, limit = 20, type = '', status = '') {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString()
+    });
+    if (type) params.append('type', type);
+    if (status) params.append('status', status);
+    const response = await this.api.get(`/api/transaction/all?${params}`);
+    return response.data;
+  }
+
+  async getTransactionStatsByPeriod(period = 30) {
+    const response = await this.api.get(`/api/transaction/stats?period=${period}`);
+    return response.data;
+  }
+
+  async updateTransactionStatusAdmin(transactionId, status, notes) {
+    const response = await this.api.patch(`/api/transaction/${transactionId}/status`, { status, notes });
+    return response.data;
+  }
+
+  async refundTransactionAdmin(transactionId, reason) {
+    const response = await this.api.post(`/api/transaction/${transactionId}/refund`, { reason });
+    return response.data;
+  }
+
+  // Bank Details API
+  async saveBankDetails(bankData) {
+    const userId = this.getUserId();
+    
+    const response = await this.api.post('/api/user/bank-details', bankData, {
+      headers: {
+        'User-Id': userId,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  }
+
+  async getBankDetails() {
+    const userId = this.getUserId();
+    
+    const response = await this.api.get('/api/user/bank-details', {
+      headers: {
+        'User-Id': userId,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  }
+
+  async updateBankDetails(bankData) {
+    const userId = this.getUserId();
+    
+    const response = await this.api.put('/api/user/bank-details', bankData, {
+      headers: {
+        'User-Id': userId,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  }
+
+  async deleteBankDetails() {
+    const userId = this.getUserId();
+    
+    const response = await this.api.delete('/api/user/bank-details', {
+      headers: {
+        'User-Id': userId,
+        'Content-Type': 'application/json'
+      }
+    });
     return response.data;
   }
 

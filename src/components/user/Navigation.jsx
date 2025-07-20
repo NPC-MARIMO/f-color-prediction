@@ -23,7 +23,7 @@ const Navigation = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  const {user} = useSelector((state) => state.auth.user);
+  const {user} = useSelector((state) => state.auth.user || state.auth );
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

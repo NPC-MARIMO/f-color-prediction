@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.wheel-spin-infinite {
+  animation: wheel-spin 1s linear infinite;
+}
+@keyframes wheel-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.wheel-sector-transition {
+  transition: fill 0.5s ease;
+}

@@ -40,14 +40,18 @@ const PHASES = {
   SPINNING: "spinning",
   RESULTS: "completed",
 };
-const SPIN_DURATION = 4;
+const SPIN_DURATION = 1;
 
 const RouletteGame = () => {
   const [round, setRound] = useState(null);
   const [timer, setTimer] = useState(0);
   const [betAmount, setBetAmount] = useState(10);
   const [selectedBet, setSelectedBet] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
   const [confirmBetOpen, setConfirmBetOpen] = useState(false);
   const [pendingBet, setPendingBet] = useState(null);
   const [wheelRotation, setWheelRotation] = useState(0);
@@ -59,6 +63,20 @@ const RouletteGame = () => {
   const [isPlacingBet, setIsPlacingBet] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
+  const pendingResultRef = useRef(null);
+  const refreshTimeoutRef = useRef(null);
+  const [isContinuousSpinning, setIsContinuousSpinning] = useState(false);
+  const enableBettingTimeoutRef = useRef(null);
+  const [winningColor, setWinningColor] = useState(null);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      if (enableBettingTimeoutRef.current)
+        clearTimeout(enableBettingTimeoutRef.current);
+    };
+  }, []);
 
   // On mount: get userId, connect to socket, request round, fetch balance
   useEffect(() => {
@@ -66,20 +84,26 @@ const RouletteGame = () => {
     const user = auth?.user?._id || auth?.user?.user?._id || auth?.user?.id;
     if (user) {
       setUserId(user);
-      // Initialize socket connection
       socketService.connect(user);
-      
-      // Set a timeout to stop loading if no response
+
       const timeout = setTimeout(() => {
         if (isLoading) {
           setIsLoading(false);
-          setSnackbar({ open: true, message: "Connection timeout. Please refresh.", severity: "warning" });
+          setSnackbar({
+            open: true,
+            message: "Connection timeout. Please refresh.",
+            severity: "warning",
+          });
         }
-      }, 10000); // 10 seconds timeout
-      
+      }, 10000);
+
       return () => clearTimeout(timeout);
     } else {
-      setSnackbar({ open: true, message: "Please login to play", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Please login to play",
+        severity: "error",
+      });
     }
   }, []);
 
@@ -87,81 +111,114 @@ const RouletteGame = () => {
   useEffect(() => {
     if (!userId) return;
 
-    // Connection status listener
     const handleConnect = () => {
       console.log("Socket connected");
       setConnectionStatus("connected");
       setIsLoading(false);
-      // Request current round status via socket
       socketService.getCurrentRound();
-      // Also fetch via API as backup
       fetchCurrentRound();
     };
 
     const handleDisconnect = () => {
       console.log("Socket disconnected");
       setConnectionStatus("disconnected");
-      setSnackbar({ open: true, message: "Connection lost. Trying to reconnect...", severity: "warning" });
+      setSnackbar({
+        open: true,
+        message: "Connection lost. Trying to reconnect...",
+        severity: "warning",
+      });
     };
 
-    // Check initial connection status and set up listeners
     const checkConnectionStatus = () => {
       const isConnected = socketService.getConnectionStatus();
-      console.log("Initial connection status check:", isConnected);
       if (isConnected) {
-        console.log("Socket already connected");
         setConnectionStatus("connected");
         setIsLoading(false);
-        // Request current round status
         socketService.getCurrentRound();
         fetchCurrentRound();
       } else {
-        console.log("Socket not connected, waiting for connection...");
         setConnectionStatus("disconnected");
       }
     };
 
-    // Check status immediately
     checkConnectionStatus();
 
-    // Game round listeners
     const handleRoundUpdate = (data) => {
-      console.log("Round update received:", data);
+      console.log("[SOCKET] round:update event received:", data);
       setRound(data);
       updateTimerFromRound(data);
+
+      // Clear any existing timeouts
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      if (enableBettingTimeoutRef.current) {
+        clearTimeout(enableBettingTimeoutRef.current);
+        enableBettingTimeoutRef.current = null;
+      }
+
       if (data.status === PHASES.SPINNING) {
-        triggerWheelAnimation(data.resultColor || "red");
+        setIsContinuousSpinning(true);
+        setIsSpinning(true);
+      } else if (data.status === PHASES.RESULTS) {
+        // When status changes to completed, stop spinning
+        setIsContinuousSpinning(false);
+        setIsSpinning(false);
+        setWheelTransition("none");
+
+  
+        // Enable betting for next round 30 seconds after completion
+        enableBettingTimeoutRef.current = setTimeout(() => {
+          console.log("Enabling betting for next round");
+          setSelectedBet(null); // Clear previous bet
+        }, 30000);
+      } else if (data.status === PHASES.BETTING) {
+        setWinningColor(null); // Reset color transition for new round
+        // Clear any pending timeouts if we're back to betting phase
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+          refreshTimeoutRef.current = null;
+        }
+        if (enableBettingTimeoutRef.current) {
+          clearTimeout(enableBettingTimeoutRef.current);
+          enableBettingTimeoutRef.current = null;
+        }
       }
     };
 
-    const handleRoundResult = (data) => {
-      console.log("Round result received:", data);
-      setRound((prev) => ({ ...prev, ...data, status: PHASES.RESULTS }));
-      updateTimerFromRound(data);
-      triggerWheelAnimation(data.resultColor);
-      handleRoundResult(data.resultColor);
+    const showResultAfterSpin = (resultData) => {
+      setRound((prev) => ({ ...prev, ...resultData, status: PHASES.RESULTS }));
+      setWinningColor(resultData.resultColor); // Set winning color for transition
+      updateTimerFromRound(resultData);
+      handleRoundResult(resultData.resultColor);
+    };
+
+    const handleRoundResultEvent = (data) => {
+      console.log("[SOCKET] round:result event received:", data);
+      if (isSpinning) {
+        pendingResultRef.current = data;
+      } else {
+        showResultAfterSpin(data);
+      }
     };
 
     const handleGameTimeUpdate = (data) => {
-      console.log("Game time update:", data);
       if (data.round) {
         setRound(data.round);
         updateTimerFromRound(data.round);
       } else if (data.timeLeft !== undefined) {
-        console.log("Direct time update:", data.timeLeft);
         setTimer(Math.max(0, data.timeLeft));
       }
     };
 
     const handleTimerUpdate = (data) => {
-      console.log("Timer update received:", data);
       if (data.timeLeft !== undefined) {
         setTimer(Math.max(0, data.timeLeft));
       }
     };
 
     const handleCurrentRound = (data) => {
-      console.log("Current round received via socket:", data);
       setRound(data);
       updateTimerFromRound(data);
       setIsLoading(false);
@@ -171,7 +228,7 @@ const RouletteGame = () => {
     socketService.on("connect", handleConnect);
     socketService.on("disconnect", handleDisconnect);
     socketService.on("round:update", handleRoundUpdate);
-    socketService.on("round:result", handleRoundResult);
+    socketService.on("round:result", handleRoundResultEvent);
     socketService.on("round:current", handleCurrentRound);
     socketService.on("game:time-update", handleGameTimeUpdate);
     socketService.on("timer:update", handleTimerUpdate);
@@ -184,21 +241,18 @@ const RouletteGame = () => {
     const connectionCheckInterval = setInterval(() => {
       const isConnected = socketService.updateConnectionStatus();
       if (isConnected && connectionStatus === "disconnected") {
-        console.log("Connection status updated to connected");
         setConnectionStatus("connected");
       } else if (!isConnected && connectionStatus === "connected") {
-        console.log("Connection status updated to disconnected");
         setConnectionStatus("disconnected");
       }
-    }, 3000); // Check every 3 seconds
+    }, 3000);
 
-    // Cleanup
     return () => {
       clearInterval(connectionCheckInterval);
       socketService.off("connect", handleConnect);
       socketService.off("disconnect", handleDisconnect);
       socketService.off("round:update", handleRoundUpdate);
-      socketService.off("round:result", handleRoundResult);
+      socketService.off("round:result", handleRoundResultEvent);
       socketService.off("round:current", handleCurrentRound);
       socketService.off("game:time-update", handleGameTimeUpdate);
       socketService.off("timer:update", handleTimerUpdate);
@@ -215,7 +269,11 @@ const RouletteGame = () => {
       setIsLoading(false);
     } catch (err) {
       console.error("Error fetching current round:", err);
-      setSnackbar({ open: true, message: "Failed to fetch game status", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch game status",
+        severity: "error",
+      });
       setIsLoading(false);
     }
   };
@@ -224,7 +282,7 @@ const RouletteGame = () => {
   useEffect(() => {
     console.log("Timer effect triggered with round:", round);
     console.log("Round endTime:", round?.endTime);
-    
+
     if (!round?.endTime) {
       console.log("No endTime found, clearing timer");
       setTimer(0);
@@ -243,14 +301,24 @@ const RouletteGame = () => {
 
     // Start interval
     const interval = setInterval(updateTimer, 1000);
-    
-    console.log("Timer interval started for round:", round._id || 'unknown');
-    
+
+    console.log("Timer interval started for round:", round._id || "unknown");
+
     return () => {
       console.log("Clearing timer interval");
       clearInterval(interval);
     };
   }, [round?.endTime, round?._id]);
+
+  // When round status is completed, wait 25 seconds and then refresh the page
+  useEffect(() => {
+    if (round?.status === PHASES.RESULTS) {
+      const timeout = setTimeout(() => {
+        window.location.reload();
+      }, 30000  );
+      return () => clearTimeout(timeout);
+    }
+  }, [round?.status]);
 
   // Fetch wallet balance
   const refreshBalance = async () => {
@@ -269,10 +337,14 @@ const RouletteGame = () => {
       if (!userId) return;
       const res = await apiService.getGameHistory(1, 10);
       const history = res?.rounds || res?.history || res || [];
-      console.log('[BACKEND] Game history:', history);
+      console.log("[BACKEND] Game history:", history);
     } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to fetch history', severity: 'error' });
-      console.error('Error fetching history:', err);
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch history",
+        severity: "error",
+      });
+      console.error("Error fetching history:", err);
     }
   };
 
@@ -296,6 +368,10 @@ const RouletteGame = () => {
         severity: "success",
       });
       refreshBalance();
+      // Call fetchCurrentRound after 2 seconds
+      setTimeout(() => {
+        fetchCurrentRound();
+      }, 2000);
     } catch (err) {
       setSnackbar({
         open: true,
@@ -331,21 +407,43 @@ const RouletteGame = () => {
 
   // Wheel animation
   const triggerWheelAnimation = (resultColor) => {
-    setIsSpinning(true);
+    console.log("triggerWheelAnimation called with resultColor:", resultColor);
+    console.log("Current isSpinning state:", isSpinning);
+
     const colorToAngle = { red: 0, green: 120, blue: 240 };
     const spins = 5;
     const targetAngle = colorToAngle[resultColor];
     const currentRotation = prevTargetRef.current % 360;
     const delta = (360 + targetAngle - currentRotation) % 360;
     const target = prevTargetRef.current + spins * 360 + delta;
+
+    console.log(
+      "Wheel animation - current rotation:",
+      prevTargetRef.current,
+      "target:",
+      target
+    );
+
     setWheelTransition("none");
     setWheelRotation(prevTargetRef.current);
     setTimeout(() => {
-      setWheelTransition(`transform ${SPIN_DURATION}s cubic-bezier(.17,.67,.83,.67)`);
+      setWheelTransition(
+        `transform ${SPIN_DURATION}s cubic-bezier(.17,.67,.83,.67)`
+      );
       setWheelRotation(target);
+      console.log(
+        "Wheel animation started, will complete in",
+        SPIN_DURATION,
+        "seconds"
+      );
       setTimeout(() => {
+        console.log("Wheel animation completed");
         setIsSpinning(false);
         prevTargetRef.current = target;
+        if (pendingResultRef.current) {
+          showResultAfterSpin(pendingResultRef.current);
+          pendingResultRef.current = null;
+        }
       }, SPIN_DURATION * 1000);
     }, 20);
   };
@@ -360,7 +458,12 @@ const RouletteGame = () => {
     const end = new Date(roundData.endTime).getTime();
     const now = Date.now();
     const timeLeft = Math.max(0, Math.floor((end - now) / 1000));
-    console.log("updateTimerFromRound - endTime:", roundData.endTime, "timeLeft:", timeLeft);
+    console.log(
+      "updateTimerFromRound - endTime:",
+      roundData.endTime,
+      "timeLeft:",
+      timeLeft
+    );
     setTimer(timeLeft);
   };
 
@@ -371,21 +474,25 @@ const RouletteGame = () => {
   // Loading state
   if (isLoading) {
     return (
-      <Box sx={{ 
-        backgroundColor: COLORS.background, 
-        minHeight: "100vh", 
-        display: "flex", 
-        justifyContent: "center", 
-        alignItems: "center",
-        flexDirection: "column",
-        gap: 2
-      }}>
+      <Box
+        sx={{
+          backgroundColor: COLORS.background,
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
         <CircularProgress sx={{ color: COLORS.primary }} />
         <Typography sx={{ color: COLORS.text }}>
-          {connectionStatus === "disconnected" ? "Connecting to game server..." : "Loading game status..."}
+          {connectionStatus === "disconnected"
+            ? "Connecting to game server..."
+            : "Loading game status..."}
         </Typography>
-        <Button 
-          variant="outlined" 
+        <Button
+          variant="outlined"
           onClick={() => {
             setIsLoading(false);
             fetchCurrentRound();
@@ -399,24 +506,44 @@ const RouletteGame = () => {
   }
 
   return (
-    <Box sx={{ backgroundColor: COLORS.background, minHeight: "100vh", color: COLORS.text, p: 2 }}>
+    <Box
+      sx={{
+        backgroundColor: COLORS.background,
+        minHeight: "100vh",
+        color: COLORS.text,
+        p: 2,
+      }}
+    >
       <Box sx={{ maxWidth: 1200, mx: "auto" }}>
         {/* Connection Status */}
-        <Paper sx={{ 
-          p: 1, 
-          mb: 2, 
-          backgroundColor: connectionStatus === "connected" ? "#1E1E1E" : "#2D1B1B", 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          borderRadius: "8px",
-          border: `1px solid ${connectionStatus === "connected" ? COLORS.green : COLORS.red}`
-        }}>
-          <Typography variant="body2" sx={{ color: connectionStatus === "connected" ? COLORS.green : COLORS.red }}>
-            {connectionStatus === "connected" ? "🟢 Connected" : "🔴 Disconnected"}
+        <Paper
+          sx={{
+            p: 1,
+            mb: 2,
+            backgroundColor:
+              connectionStatus === "connected" ? "#1E1E1E" : "#2D1B1B",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderRadius: "8px",
+            border: `1px solid ${
+              connectionStatus === "connected" ? COLORS.green : COLORS.red
+            }`,
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              color:
+                connectionStatus === "connected" ? COLORS.green : COLORS.red,
+            }}
+          >
+            {connectionStatus === "connected"
+              ? "🟢 Connected"
+              : "🔴 Disconnected"}
           </Typography>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             onClick={fetchCurrentRound}
             sx={{ color: COLORS.primary }}
           >
@@ -425,18 +552,42 @@ const RouletteGame = () => {
         </Paper>
 
         {/* Debug Info */}
-        {process.env.NODE_ENV === 'development' && (
-          <Paper sx={{ p: 1, mb: 2, backgroundColor: "#2D1B1B", borderRadius: "8px", fontSize: "12px" }}>
+        {process.env.NODE_ENV === "development" && (
+          <Paper
+            sx={{
+              p: 1,
+              mb: 2,
+              backgroundColor: "#2D1B1B",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+          >
             <Typography variant="caption" sx={{ color: "#AAA" }}>
-              Debug: Round ID: {round?._id || 'none'} | Status: {round?.status || 'none'} | EndTime: {round?.endTime || 'none'} | Timer: {timer}s
+              Debug: Round ID: {round?._id || "none"} | Status:{" "}
+              {round?.status || "none"} | EndTime: {round?.endTime || "none"} |
+              Timer: {timer}s
             </Typography>
           </Paper>
         )}
 
         {/* Game Status Bar */}
-        <Paper sx={{ p: 2, mb: 3, backgroundColor: "#1E1E1E", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)" }}>
+        <Paper
+          sx={{
+            p: 2,
+            mb: 3,
+            backgroundColor: "#1E1E1E",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderRadius: "12px",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+          }}
+        >
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: "bold", color: COLORS.primary }}>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: "bold", color: COLORS.primary }}
+            >
               {round?.status === PHASES.BETTING
                 ? "BETTING PHASE"
                 : round?.status === PHASES.SPINNING
@@ -458,62 +609,182 @@ const RouletteGame = () => {
             <Typography variant="h6" sx={{ color: COLORS.primary }}>
               {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, "0")}
             </Typography>
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               onClick={() => {
                 console.log("Manual timer refresh clicked");
                 if (round?.endTime) {
                   updateTimerFromRound(round);
                 }
               }}
-              sx={{ color: COLORS.primary, minWidth: 'auto', p: 0.5 }}
+              sx={{ color: COLORS.primary, minWidth: "auto", p: 0.5 }}
             >
               🔄
             </Button>
           </Box>
         </Paper>
 
-        <Box sx={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            gap: 3,
+          }}
+        >
           {/* Wheel Area */}
-          <Paper sx={{ flex: 1, p: 3, backgroundColor: "#1E1E1E", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <Paper
+            sx={{
+              flex: 1,
+              p: 3,
+              backgroundColor: "#1E1E1E",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
             <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
               COLOR WHEEL
             </Typography>
             {/* Wheel Visualization */}
             <Box sx={{ position: "relative", width: 320, height: 320, mb: 4 }}>
               {/* Pointer */}
-              <Box sx={{ position: "absolute", top: -18, left: "calc(50% - 18px)", width: 0, height: 0, borderLeft: "18px solid transparent", borderRight: "18px solid transparent", borderBottom: `32px solid ${COLORS.primary}`, zIndex: 3, filter: "drop-shadow(0 0 5px rgba(212, 175, 55, 0.8))" }} />
-              <svg width="320" height="320" viewBox="0 0 320 320" style={{ transform: `rotate(${wheelRotation}deg)`, transition: wheelTransition, zIndex: 2, position: "absolute", top: 0, left: 0 }}>
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: -18,
+                  left: "calc(50% - 18px)",
+                  width: 0,
+                  height: 0,
+                  borderLeft: "18px solid transparent",
+                  borderRight: "18px solid transparent",
+                  borderBottom: `32px solid ${COLORS.primary}`,
+                  zIndex: 3,
+                  filter: "drop-shadow(0 0 5px rgba(212, 175, 55, 0.8))",
+                }}
+              />
+              <svg
+                width="320"
+                height="320"
+                viewBox="0 0 320 320"
+                style={{
+                  transform: isContinuousSpinning
+                    ? undefined // handled by CSS class
+                    : `rotate(${wheelRotation}deg)`,
+                  transition: isContinuousSpinning
+                    ? undefined
+                    : wheelTransition,
+                  zIndex: 2,
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                }}
+                className={isContinuousSpinning ? "wheel-spin-infinite" : ""}
+              >
                 {/* Red sector */}
-                <path d="M160,160 L160,20 A140,140 0 0,1 280.62,230.62 Z" fill={COLORS.red} stroke="#fff" strokeWidth="2" />
+                <path
+                  d="M160,160 L160,20 A140,140 0 0,1 280.62,230.62 Z"
+                  fill={winningColor ? COLORS[winningColor] : COLORS.red}
+                  className={winningColor ? "wheel-sector-transition" : ""}
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
                 {/* Green sector */}
-                <path d="M160,160 L280.62,230.62 A140,140 0 0,1 39.38,230.62 Z" fill={COLORS.green} stroke="#fff" strokeWidth="2" />
+                <path
+                  d="M160,160 L280.62,230.62 A140,140 0 0,1 39.38,230.62 Z"
+                  fill={winningColor ? COLORS[winningColor] : COLORS.green}
+                  className={winningColor ? "wheel-sector-transition" : ""}
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
                 {/* Blue sector */}
-                <path d="M160,160 L39.38,230.62 A140,140 0 0,1 160,20 Z" fill={COLORS.blue} stroke="#fff" strokeWidth="2" />
+                <path
+                  d="M160,160 L39.38,230.62 A140,140 0 0,1 160,20 Z"
+                  fill={winningColor ? COLORS[winningColor] : COLORS.blue}
+                  className={winningColor ? "wheel-sector-transition" : ""}
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
                 {/* Center circle */}
                 <circle cx="160" cy="160" r="40" fill={COLORS.primary} />
                 {/* Labels */}
-                <text x="160" y="45" textAnchor="middle" fill="white" fontWeight="bold">RED</text>
-                <text x="265" y="245" textAnchor="middle" fill="white" fontWeight="bold">GREEN</text>
-                <text x="55" y="245" textAnchor="middle" fill="white" fontWeight="bold">BLUE</text>
+                <text
+                  x="160"
+                  y="45"
+                  textAnchor="middle"
+                  fill="white"
+                  fontWeight="bold"
+                >
+                  RED
+                </text>
+                <text
+                  x="265"
+                  y="245"
+                  textAnchor="middle"
+                  fill="white"
+                  fontWeight="bold"
+                >
+                  GREEN
+                </text>
+                <text
+                  x="55"
+                  y="245"
+                  textAnchor="middle"
+                  fill="white"
+                  fontWeight="bold"
+                >
+                  BLUE
+                </text>
               </svg>
             </Box>
             {/* Results Display */}
             {round?.status === PHASES.RESULTS && round?.resultColor && (
-              <Box sx={{ p: 2, width: "100%", backgroundColor: COLORS[round.resultColor], borderRadius: "8px", textAlign: "center", mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: "bold", color: "white" }}>
+              <Box
+                sx={{
+                  p: 2,
+                  width: "100%",
+                  backgroundColor: COLORS[round.resultColor],
+                  borderRadius: "8px",
+                  textAlign: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: "bold", color: "white" }}
+                >
                   WINNER: {round.resultColor.toUpperCase()}
                 </Typography>
               </Box>
             )}
           </Paper>
           {/* Betting Area */}
-          <Paper sx={{ width: isMobile ? "100%" : 350, p: 3, backgroundColor: "#1E1E1E", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)" }}>
+          <Paper
+            sx={{
+              width: isMobile ? "100%" : 350,
+              p: 3,
+              backgroundColor: "#1E1E1E",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+            }}
+          >
             <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
               PLACE YOUR BET
             </Typography>
             {/* Balance Display */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, p: 2, backgroundColor: "rgba(212, 175, 55, 0.1)", borderRadius: "8px", border: `1px solid ${COLORS.primary}` }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 3,
+                p: 2,
+                backgroundColor: "rgba(212, 175, 55, 0.1)",
+                borderRadius: "8px",
+                border: `1px solid ${COLORS.primary}`,
+              }}
+            >
               <Typography sx={{ color: "#AAA" }}>BALANCE:</Typography>
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <MonetizationOn sx={{ color: COLORS.primary, mr: 1 }} />
@@ -524,7 +795,9 @@ const RouletteGame = () => {
             </Box>
             {/* Bet Amount Input */}
             <Box sx={{ mb: 4 }}>
-              <Typography sx={{ mb: 1.5, color: "#AAA" }}>BET AMOUNT:</Typography>
+              <Typography sx={{ mb: 1.5, color: "#AAA" }}>
+                BET AMOUNT:
+              </Typography>
               <TextField
                 type="number"
                 value={betAmount}
@@ -535,21 +808,21 @@ const RouletteGame = () => {
                 inputProps={{ min: 1, step: 1 }}
                 sx={{
                   width: "100%",
-                  '& .MuiInputBase-input': {
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    background: '#222',
+                  "& .MuiInputBase-input": {
+                    color: "#fff",
+                    fontWeight: "bold",
+                    background: "#222",
                     borderRadius: 1,
                     p: 1,
                   },
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
                       borderColor: COLORS.primary,
                     },
-                    '&:hover fieldset': {
+                    "&:hover fieldset": {
                       borderColor: COLORS.primary,
                     },
-                    '&.Mui-focused fieldset': {
+                    "&.Mui-focused fieldset": {
                       borderColor: COLORS.primary,
                     },
                   },
@@ -563,30 +836,40 @@ const RouletteGame = () => {
             </Box>
             {/* Color Selection */}
             <Box sx={{ mb: 4 }}>
-              <Typography sx={{ mb: 1.5, color: "#AAA" }}>SELECT COLOR:</Typography>
+              <Typography sx={{ mb: 1.5, color: "#AAA" }}>
+                SELECT COLOR:
+              </Typography>
               <Box sx={{ display: "grid", gap: 1.5 }}>
                 {BET_OPTIONS.map((bet) => (
                   <Button
                     key={bet.value}
-                    variant={selectedBet?.value === bet.value ? "contained" : "outlined"}
+                    variant={
+                      selectedBet?.value === bet.value
+                        ? "contained"
+                        : "outlined"
+                    }
                     onClick={() => {
-                      if (round?.status !== PHASES.BETTING || selectedBet) return;
+                      if (round?.status !== PHASES.BETTING || selectedBet)
+                        return;
                       setPendingBet(bet);
                       setConfirmBetOpen(true);
                     }}
                     disabled={
                       round?.status !== PHASES.BETTING ||
-                      !!selectedBet ||
+                      (!!selectedBet && round?.status === PHASES.BETTING) || // Only disable if in betting phase and already has bet
                       betAmount > balance
                     }
                     sx={{
                       py: 2,
                       justifyContent: "space-between",
                       backgroundColor:
-                        selectedBet?.value === bet.value ? bet.color : "transparent",
-                      color: selectedBet?.value === bet.value ? "white" : bet.color,
+                        selectedBet?.value === bet.value
+                          ? bet.color
+                          : "transparent",
+                      color:
+                        selectedBet?.value === bet.value ? "white" : bet.color,
                       borderColor: bet.color,
-                      '&:hover': {
+                      "&:hover": {
                         backgroundColor: `${bet.color}20`,
                       },
                     }}
@@ -598,32 +881,72 @@ const RouletteGame = () => {
               </Box>
             </Box>
             {/* Current Bet Display */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, p: 2, backgroundColor: "rgba(0, 0, 0, 0.3)", borderRadius: "8px" }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 3,
+                p: 2,
+                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                borderRadius: "8px",
+              }}
+            >
               <Typography sx={{ color: "#AAA" }}>YOUR BET:</Typography>
               <Typography sx={{ fontWeight: "bold" }}>
-                {selectedBet ? `${selectedBet.label} (${formatINR(selectedBet.amount)})` : "None"}
+                {selectedBet
+                  ? `${selectedBet.label} (${formatINR(selectedBet.amount)})`
+                  : "None"}
               </Typography>
             </Box>
           </Paper>
         </Box>
         {/* Bet Confirmation Dialog */}
-        <Dialog open={confirmBetOpen} onClose={() => setConfirmBetOpen(false)} PaperProps={{ sx: { backgroundColor: "#1E1E1E", color: COLORS.text, border: `1px solid ${COLORS.primary}` } }}>
+        <Dialog
+          open={confirmBetOpen}
+          onClose={() => setConfirmBetOpen(false)}
+          PaperProps={{
+            sx: {
+              backgroundColor: "#1E1E1E",
+              color: COLORS.text,
+              border: `1px solid ${COLORS.primary}`,
+            },
+          }}
+        >
           <DialogTitle>Confirm Bet</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Place {formatINR(betAmount)} on <span style={{ color: pendingBet?.color }}>{pendingBet?.label}</span>?
+              Place {formatINR(betAmount)} on{" "}
+              <span style={{ color: pendingBet?.color }}>
+                {pendingBet?.label}
+              </span>
+              ?
             </DialogContentText>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmBetOpen(false)}>Cancel</Button>
-            <Button onClick={handleConfirmBet} color="primary" autoFocus disabled={isPlacingBet}>
+            <Button
+              onClick={handleConfirmBet}
+              color="primary"
+              autoFocus
+              disabled={isPlacingBet}
+            >
               {isPlacingBet ? "Placing..." : "Confirm"}
             </Button>
           </DialogActions>
         </Dialog>
         {/* Snackbar Notifications */}
-        <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}>
-          <Alert severity={snackbar.severity} sx={{ width: "100%" }} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={3000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Alert
+            severity={snackbar.severity}
+            sx={{ width: "100%" }}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+          >
             {snackbar.message}
           </Alert>
         </Snackbar>

@@ -309,11 +309,6 @@ const Profile = () => {
                 formatCurrency(user?.totalWithdrawn || 0),
                 <TrendingDown sx={{ color: palette.danger }} />,
               ],
-              [
-                "Locked Balance",
-                formatCurrency(user?.lockedBalance || 0),
-                <Casino sx={{ color: palette.secondary }} />,
-              ],
             ].map(([label, value, icon], i) => (
               <Grid item xs={6} md={3} key={i}>
                 <Card sx={{ bgcolor: palette.card, borderRadius: 3 }}>
@@ -332,6 +327,39 @@ const Profile = () => {
                 </Card>
               </Grid>
             ))}
+            {/* Add Bank Details Link */}
+            <Grid item xs={12} md={3}>
+              <Card
+                component="a"
+                href="/user/bank"
+                sx={{
+                  bgcolor: palette.card,
+                  borderRadius: 3,
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textDecoration: 'none',
+                  boxShadow: 'none',
+                  transition: 'box-shadow 0.2s, transform 0.2s',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    boxShadow: '0 4px 24px 0 rgba(212, 175, 55, 0.15)',
+                    transform: 'translateY(-2px) scale(1.03)',
+                  },
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                  <AccountBalance sx={{ fontSize: 40, color: palette.primary, mb: 1 }} />
+                  <Typography variant="h6" sx={{ color: palette.primary, fontWeight: 'bold', mb: 0.5 }}>
+                    Bank Details
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: palette.fadedText }}>
+                    Add or update your bank info for withdrawals
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         </Grid>
       </Grid>

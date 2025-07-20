@@ -52,6 +52,7 @@ import {
   Refresh,
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import apiService from '../../services/apiService';
 
 const Wallet = () => {
@@ -316,6 +317,85 @@ const Wallet = () => {
               </Box>
               <Typography variant="h4" color="error.main">
                 ₹{walletData.totalLost.toLocaleString()}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Quick Action Cards */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card
+            component={Link}
+            to="/user/deposit"
+            sx={{
+              textDecoration: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
+              },
+            }}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 4 }}>
+              <Add sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Add Funds
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Deposit money to your wallet
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={4}>
+          <Card
+            onClick={() => setShowWithdraw(true)}
+            sx={{
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
+              },
+            }}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 4 }}>
+              <Remove sx={{ fontSize: 48, color: 'warning.main', mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Withdraw
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Withdraw your winnings
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={4}>
+          <Card
+            component={Link}
+            to="/user/bank"
+            sx={{
+              textDecoration: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
+              },
+            }}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 4 }}>
+              <AccountBalance sx={{ fontSize: 48, color: 'info.main', mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Bank Details
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Manage your bank information
               </Typography>
             </CardContent>
           </Card>

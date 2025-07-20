@@ -17,6 +17,8 @@ import Users from "./pages/admin/users.jsx";
 import WithdrawRequests from "./pages/admin/withdrawRequests.jsx";
 import GameRounds from "./pages/admin/gameRounds.jsx";
 import GamePlay from "./pages/user/gamePlay.jsx";
+import BankDetailsPage from "./pages/user/bank.jsx";
+import DepositPage from "./pages/user/deposit.jsx";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true }) => {
@@ -46,19 +48,40 @@ export default function App() {
       <Router>
         <Routes>
           {/* Public routes - redirect to profile if authenticated */}
-          <Route path="/" element={<PublicRoute><UserLayout /></PublicRoute>}>
-            <Route path='/' element={<Home />} />
+          <Route
+            path="/"
+            element={
+              <PublicRoute>
+                <UserLayout />
+              </PublicRoute>
+            }
+          >
+            <Route path="/" element={<Home />} />
             <Route path="Home" element={<Home />} />
           </Route>
 
           {/* Auth routes - redirect to profile if authenticated */}
-          <Route path="/auth" element={<PublicRoute><AuthLayout /></PublicRoute>}>
+          <Route
+            path="/auth"
+            element={
+              <PublicRoute>
+                <AuthLayout />
+              </PublicRoute>
+            }
+          >
             <Route path="register" element={<Register />} />
             <Route path="login" element={<Login />} />
           </Route>
 
           {/* Protected user routes - redirect to login if not authenticated */}
-          <Route path="/user" element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
+          <Route
+            path="/user"
+            element={
+              <ProtectedRoute>
+                <UserLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="home" element={<Home />} />
             <Route path="game" element={<Game />} />
             <Route path="game/play/:gameId" element={<GamePlay />} />
@@ -67,10 +90,19 @@ export default function App() {
             <Route path="withdraw" element={<Withdraw />} />
             <Route path="support" element={<Support />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="bank" element={<BankDetailsPage />} />
+            <Route path="deposit" element={<DepositPage />} />
           </Route>
 
           {/* Protected admin routes - redirect to login if not authenticated */}
-          <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="gameRounds" element={<GameRounds />} />
