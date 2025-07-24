@@ -19,6 +19,7 @@ import GameRounds from "./pages/admin/gameRounds.jsx";
 import GamePlay from "./pages/user/gamePlay.jsx";
 import BankDetailsPage from "./pages/user/bank.jsx";
 import DepositPage from "./pages/user/deposit.jsx";
+import CashfreeCallback from "./pages/payment/CashfreeCallback.jsx";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAuth = true }) => {
@@ -110,6 +111,7 @@ export default function App() {
           </Route>
 
           <Route path="*" element={<h1>404</h1>} />
+          <Route path="/payment/cashfree-callback" element={<CashfreeCallback />} />
         </Routes>
       </Router>
     </div>

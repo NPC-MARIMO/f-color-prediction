@@ -51,8 +51,10 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.verified = false;
-      // Clear from localStorage
+      // Clear all auth-related data
       localStorage.removeItem('auth');
+      localStorage.removeItem('token'); // If you store token separately
+      // If using cookies, clear them here as well
     },
   },
   extraReducers: (builder) => {

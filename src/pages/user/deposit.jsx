@@ -44,7 +44,7 @@ const PAYMENT_METHODS = [
   { value: "card", label: "Credit/Debit Card", icon: "💳" },
 ];
 
-const DEPOSIT_AMOUNTS = [100, 500, 1000, 2000, 5000, 10000];
+const DEPOSIT_AMOUNTS = [1, 100, 500, 1000, 2000, 5000, 10000];
 
 const DepositPage = () => {
   const [amount, setAmount] = useState("");
@@ -90,10 +90,10 @@ const DepositPage = () => {
 
   const handleDeposit = async (e) => {
     e.preventDefault();
-    if (!amount || amount < 5) {
+    if (!amount || amount < 1) {
       setSnackbar({
         open: true,
-        message: "Minimum deposit amount is ₹5",
+        message: "Minimum deposit amount is ₹1",
         severity: "error",
       });
       return;
@@ -272,7 +272,7 @@ const DepositPage = () => {
                   }}
                   InputLabelProps={{ style: { color: COLORS.primary } }}
                   variant="outlined"
-                  placeholder="Enter amount (min ₹5)"
+                  placeholder="Enter amount (min ₹1)"
                 />
 
                 {/* Payment Method */}
@@ -309,7 +309,7 @@ const DepositPage = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={isProcessing || !amount || amount < 100}
+                  disabled={isProcessing || !amount || amount < 1}
                   sx={{
                     backgroundColor: COLORS.primary,
                     color: "#222",
