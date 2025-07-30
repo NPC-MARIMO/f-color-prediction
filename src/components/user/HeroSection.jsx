@@ -44,7 +44,7 @@ const HeroSection = () => {
           <Grid item xs={12} md={6}>
             <Box sx={{ mb: 2 }}>
               <Chip
-                label="🎮 New Game Mode Available"
+                label="🎮 Ready to begin?"
                 sx={{
                   backgroundColor: "rgba(212, 175, 55, 0.2)",
                   color: "#D4AF37",
@@ -57,9 +57,9 @@ const HeroSection = () => {
               variant="h1"
               sx={{ mb: 3, textAlign: { xs: "center", md: "left" } }}
             >
-              Master the Art of
+              Test your luck,
               <br />
-              Color Prophecy
+              trust your instincts
             </Typography>
 
             <Typography
@@ -70,9 +70,9 @@ const HeroSection = () => {
                 textAlign: { xs: "center", md: "left" },
               }}
             >
-              Embark on an epic quest where your intuition meets fortune.
-              Predict the mystical colors that emerge from the ancient Win2Win
-              and claim your place among the legendary Color Seers.
+              Start Your Quest now and see if destiny favors your choices. Or
+              view the leaderboard and get inspired by top seers!. Let the colors
+              reveal your fate. Sign up and let the journey begin!
             </Typography>
 
             <Box

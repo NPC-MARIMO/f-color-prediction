@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   Avatar,
-  Rating,
 } from "@mui/material";
 
 const testimonials = [
@@ -36,39 +35,15 @@ const testimonials = [
     rating: 5,
     text: "The mystical energy of the ChromaOrb resonates with my soul. This isn't just a game - it's a spiritual journey where intuition meets destiny. The community of fellow seers is incredibly supportive.",
   },
-  {
-    id: "testimonial-4",
-    name: "Thorin Goldseeker",
-    title: "Master of Treasure",
-    avatar: "⛏️",
-    rating: 5,
-    text: "I've found more treasure here than in any dungeon! The instant payouts and fair gameplay make Win2Win the most trustworthy quest I've embarked upon. Highly recommended for fellow adventurers!",
-  },
-  {
-    id: "testimonial-5",
-    name: "Sage Violette",
-    title: "Oracle of the Purple Flame",
-    avatar: "🔥",
-    rating: 5,
-    text: "My prophecies have never been more accurate! The ChromaOrb amplifies my natural abilities, and the strategic depth keeps me engaged for hours. A truly revolutionary gaming experience.",
-  },
-  {
-    id: "testimonial-6",
-    name: "Captain Scarlett",
-    title: "Pirate of the Color Seas",
-    avatar: "🏴‍☠️",
-    rating: 5,
-    text: "Ahoy! Found me greatest treasure right here, mateys! The real-time battles and competitive leaderboards make every session an adventure. The gold flows as freely as the ocean!",
-  },
 ];
 
 const cardStyles = {
   height: "100%",
-  background:
-    "linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(106, 13, 173, 0.05) 100%)",
+  background: "rgba(30, 30, 30, 0.8)",
+  border: "1px solid rgba(212, 175, 55, 0.3)",
   position: "relative",
   "&::before": {
-    content: '"""',
+    content: '""',
     position: "absolute",
     top: 16,
     left: 16,
@@ -88,12 +63,27 @@ const TestimonialsSection = () => {
     >
       <Container maxWidth="lg">
         <Box sx={{ textAlign: "center", mb: 6 }}>
-          <Typography variant="h2" component="h2" sx={{ mb: 2 }}>
+          <Typography
+            variant="h2"
+            component="h2"
+            sx={{
+              mb: 2,
+              color: "#D4AF37",
+              fontFamily: "serif",
+              fontWeight: 700,
+              letterSpacing: "1px",
+            }}
+          >
             Tales from Fellow Seers
           </Typography>
           <Typography
             variant="body1"
-            sx={{ fontSize: "1.2rem", maxWidth: 600, mx: "auto" }}
+            sx={{
+              fontSize: "1.2rem",
+              maxWidth: 600,
+              mx: "auto",
+              color: "#CCCCCC",
+            }}
           >
             Hear the epic stories of triumph from our community of legendary
             color prophets
@@ -104,7 +94,7 @@ const TestimonialsSection = () => {
           {testimonials.map((testimonial) => (
             <Grid item xs={12} md={6} lg={4} key={testimonial.id}>
               <Card sx={cardStyles}>
-                <CardContent sx={{ p: 4, pt: 6 }}>
+                <CardContent sx={{ p: 4, pt: 8 }}>
                   <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
                     <Avatar
                       sx={{
@@ -120,30 +110,50 @@ const TestimonialsSection = () => {
                       <Typography
                         variant="h6"
                         component="h3"
-                        sx={{ color: "#FFFFFF" }}
+                        sx={{ color: "#FFFFFF", fontWeight: 600 }}
                       >
                         {testimonial.name}
                       </Typography>
-                      <Typography variant="body2" sx={{ color: "#D4AF37" }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "rgba(212, 175, 55, 0.8)",
+                          fontStyle: "italic",
+                        }}
+                      >
                         {testimonial.title}
                       </Typography>
                     </Box>
                   </Box>
 
-                  <Rating
-                    value={testimonial.rating}
-                    readOnly
+                  <Typography
                     sx={{
+                      color: "rgba(212, 175, 55, 0.8)",
+                      fontSize: "1.5rem",
                       mb: 2,
-                      "& .MuiRating-iconFilled": { color: "#D4AF37" },
                     }}
-                    aria-label={`${testimonial.rating} star rating`}
-                  />
+                  >
+                    {"🌡".repeat(testimonial.rating)}
+                  </Typography>
 
                   <Typography
                     variant="body1"
                     component="blockquote"
-                    sx={{ color: "#CCCCCC", fontStyle: "italic" }}
+                    sx={{
+                      color: "#CCCCCC",
+                      fontStyle: "italic",
+                      position: "relative",
+                      pl: 2,
+                      "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        height: "100%",
+                        width: "3px",
+                        background: "rgba(212, 175, 55, 0.5)",
+                      },
+                    }}
                   >
                     {testimonial.text}
                   </Typography>

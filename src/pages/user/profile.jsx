@@ -27,6 +27,9 @@ import {
   TableHead,
   TableRow,
   Paper,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
 } from "@mui/material";
 import {
   Person,
@@ -38,6 +41,7 @@ import {
   AccountBalance,
   Star,
   Timeline,
+  ArrowDownward,
 } from "@mui/icons-material";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../../store/features/auth/authSlice";
@@ -57,7 +61,7 @@ const palette = {
 
 const Profile = () => {
   const dispatch = useDispatch();
-  const {user} = useSelector((state) => state.auth.user);
+  const { user } = useSelector((state) => state.auth.user);
 
   const [profileData, setProfileData] = useState({
     name: "",
@@ -67,7 +71,6 @@ const Profile = () => {
     gamesLost: 0,
     totalWon: 0,
     totalLost: 0,
-    winRate: 0,
     bestWin: 0,
     currentStreak: 0,
     longestStreak: 0,
@@ -83,18 +86,54 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [editForm, setEditForm] = useState({ name: "", email: "" });
 
+  // Withdraw dialog state
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+
+  // Wallet balance state (fetched from server)
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  // Bank/UPI form state for withdraw dialog
+  const [bankFormType, setBankFormType] = useState("bank"); // "bank" or "upi"
+  const [bankDetails, setBankDetails] = useState({
+    accountNumber: "",
+    beneficiaryName: "",
+    ifsc: "",
+    bankName: "",
+    upi: "",
+  });
+
   useEffect(() => {
     if (user?.id || user?._id) {
       loadProfileData();
       loadGameHistory();
+      fetchWalletBalance();
     }
+    // eslint-disable-next-line
   }, [user]);
+
+  const fetchWalletBalance = async () => {
+    try {
+      const response = await apiService.getWalletBalance();
+
+      setWalletBalance(response.wallet.balance || 0);
+    } catch (error) {
+      console.error("Error fetching balance:", error);
+      // setSnackbar is not defined in this file, so we comment it out
+      // setSnackbar({
+      //   open: true,
+      //   message: "Failed to load balance",
+      //   severity: "error",
+      // });
+    }
+  };
 
   const loadProfileData = () => {
     const totalGames = user?.totalGamesPlayed || 0;
     const gamesWon = user?.totalGamesWon || 0;
     const gamesLost = totalGames - gamesWon;
-    const winRate = totalGames > 0 ? (gamesWon / totalGames) * 100 : 0;
 
     setProfileData({
       name: user?.name || "Player",
@@ -104,7 +143,6 @@ const Profile = () => {
       gamesLost,
       totalWon: user?.totalAmountWon || 0,
       totalLost: (user?.totalDeposited || 0) - (user?.totalAmountWon || 0),
-      winRate,
       bestWin: user?.totalAmountWon || 0,
       currentStreak: 0,
       longestStreak: 0,
@@ -181,7 +219,7 @@ const Profile = () => {
     }
   };
 
-  const formatCurrency = (amount) => `₹${amount.toLocaleString()}`;
+  const formatCurrency = (amount) => `₹${Number(amount).toLocaleString()}`;
 
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleString("en-IN", {
@@ -191,6 +229,118 @@ const Profile = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  // Withdraw logic
+  const handleOpenWithdrawDialog = () => {
+    setWithdrawDialogOpen(true);
+    setWithdrawAmount("");
+    setError("");
+    setSuccess("");
+    setBankFormType("bank");
+    setBankDetails({
+      accountNumber: "",
+      beneficiaryName: "",
+      ifsc: "",
+      bankName: "",
+      upi: "",
+    });
+  };
+
+  const handleCloseWithdrawDialog = () => {
+    setWithdrawDialogOpen(false);
+    setWithdrawAmount("");
+    setError("");
+    setSuccess("");
+    setBankFormType("bank");
+    setBankDetails({
+      accountNumber: "",
+      beneficiaryName: "",
+      ifsc: "",
+      bankName: "",
+      upi: "",
+    });
+  };
+
+  const handleBankDetailsChange = (e) => {
+    const { name, value } = e.target;
+    setBankDetails((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleWithdrawRequest = async () => {
+    setError("");
+    setSuccess("");
+    if (!withdrawAmount || isNaN(withdrawAmount) || Number(withdrawAmount) <= 0) {
+      setError("Please enter a valid amount.");
+      return;
+    }
+    if (Number(withdrawAmount) > walletBalance) {
+      setError("Insufficient wallet balance.");
+      return;
+    }
+
+    // Validate bank/upi details
+    if (bankFormType === "bank") {
+      if (
+        !bankDetails.accountNumber ||
+        !bankDetails.beneficiaryName ||
+        !bankDetails.ifsc ||
+        !bankDetails.bankName
+      ) {
+        setError("Please fill all bank details.");
+        return;
+      }
+    } else if (bankFormType === "upi") {
+      if (!bankDetails.upi) {
+        setError("Please enter your UPI ID.");
+        return;
+      }
+    }
+
+    setWithdrawLoading(true);
+    try {
+      // You may need to adjust the API call according to your backend
+      await apiService.createWithdrawalRequest({
+        amount: Number(withdrawAmount),
+        ...(bankFormType === "bank"
+          ? {
+              bankDetails: {
+                accountNumber: bankDetails.accountNumber,
+                beneficiaryName: bankDetails.beneficiaryName,
+                ifsc: bankDetails.ifsc,
+                bankName: bankDetails.bankName,
+              },
+            }
+          : {
+              upi: bankDetails.upi,
+            }),
+        method: bankFormType,
+      });
+      setSuccess("Withdraw request created successfully!");
+      setWithdrawDialogOpen(false);
+      setWithdrawAmount("");
+      setBankFormType("bank");
+      setBankDetails({
+        accountNumber: "",
+        beneficiaryName: "",
+        ifsc: "",
+        bankName: "",
+        upi: "",
+      });
+      // Refresh wallet balance after withdraw request
+      fetchWalletBalance();
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to create withdraw request"
+      );
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
 
   return (
     <Box
@@ -290,24 +440,11 @@ const Profile = () => {
                 <TrendingUp sx={{ color: palette.success }} />,
               ],
               [
-                "Win Rate",
-                `${profileData.winRate.toFixed(1)}%`,
-                <Star sx={{ color: palette.primary }} />,
-              ],
-              [
                 "Wallet Balance",
-                formatCurrency(user?.walletBalance || 0),
+                walletLoading
+                  ? <CircularProgress size={20} sx={{ color: palette.primary }} />
+                  : formatCurrency(walletBalance),
                 <AccountBalance sx={{ color: palette.success }} />,
-              ],
-              [
-                "Total Deposited",
-                formatCurrency(user?.totalDeposited || 0),
-                <TrendingUp sx={{ color: palette.secondary }} />,
-              ],
-              [
-                "Total Withdrawn",
-                formatCurrency(user?.totalWithdrawn || 0),
-                <TrendingDown sx={{ color: palette.danger }} />,
               ],
             ].map(([label, value, icon], i) => (
               <Grid item xs={6} md={3} key={i}>
@@ -327,32 +464,48 @@ const Profile = () => {
                 </Card>
               </Grid>
             ))}
-            {/* Add Deposit and Bank Details Links */}
-            <Grid item xs={12} md={3}>
+            {/* Add Deposit, Withdraw, and Bank Details Links */}
+            <Grid
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 20,
+              }}
+              item
+              xs={12}
+              md={3}
+            >
               <Card
                 component="a"
                 href="/user/deposit"
                 sx={{
                   bgcolor: palette.card,
                   borderRadius: 3,
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textDecoration: 'none',
-                  boxShadow: 'none',
-                  transition: 'box-shadow 0.2s, transform 0.2s',
-                  cursor: 'pointer',
+                  height: "100%",
+                  width: "500px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textDecoration: "none",
+                  boxShadow: "none",
+                  transition: "box-shadow 0.2s, transform 0.2s",
+                  cursor: "pointer",
                   mb: 2,
-                  '&:hover': {
-                    boxShadow: '0 4px 24px 0 rgba(212, 175, 55, 0.15)',
-                    transform: 'translateY(-2px) scale(1.03)',
+                  "&:hover": {
+                    boxShadow: "0 4px 24px 0 rgba(212, 175, 55, 0.15)",
+                    transform: "translateY(-2px) scale(1.03)",
                   },
                 }}
               >
-                <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <TrendingUp sx={{ fontSize: 40, color: palette.primary, mb: 1 }} />
-                  <Typography variant="h6" sx={{ color: palette.primary, fontWeight: 'bold', mb: 0.5 }}>
+                <CardContent sx={{ textAlign: "center", p: 3 }}>
+                  <TrendingUp
+                    sx={{ fontSize: 40, color: palette.primary, mb: 1 }}
+                  />
+                  <Typography
+                    variant="h6"
+                    sx={{ color: palette.primary, fontWeight: "bold", mb: 0.5 }}
+                  >
                     Deposit
                   </Typography>
                   <Typography variant="body2" sx={{ color: palette.fadedText }}>
@@ -360,29 +513,97 @@ const Profile = () => {
                   </Typography>
                 </CardContent>
               </Card>
+            </Grid>
+            {/* Withdraw Card */}
+            <Grid
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 20,
+              }}
+              item
+              xs={12}
+              md={3}
+            >
+              <Card
+                sx={{
+                  bgcolor: palette.card,
+                  borderRadius: 3,
+                  height: "100%",
+                  width: "500px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textDecoration: "none",
+                  boxShadow: "none",
+                  transition: "box-shadow 0.2s, transform 0.2s",
+                  cursor: "pointer",
+                  mb: 2,
+                  "&:hover": {
+                    boxShadow: "0 4px 24px 0 rgba(212, 175, 55, 0.15)",
+                    transform: "translateY(-2px) scale(1.03)",
+                  },
+                }}
+                onClick={handleOpenWithdrawDialog}
+              >
+                <CardContent sx={{ textAlign: "center", p: 3 }}>
+                  <ArrowDownward
+                    sx={{ fontSize: 40, color: palette.primary, mb: 1 }}
+                  />
+                  <Typography
+                    variant="h6"
+                    sx={{ color: palette.primary, fontWeight: "bold", mb: 0.5 }}
+                  >
+                    Withdraw
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: palette.fadedText }}>
+                    Create a withdraw request
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            {/* Bank Details Card */}
+            <Grid
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 20,
+              }}
+              item
+              xs={12}
+              md={3}
+            >
               <Card
                 component="a"
                 href="/user/bank"
                 sx={{
                   bgcolor: palette.card,
                   borderRadius: 3,
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textDecoration: 'none',
-                  boxShadow: 'none',
-                  transition: 'box-shadow 0.2s, transform 0.2s',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    boxShadow: '0 4px 24px 0 rgba(212, 175, 55, 0.15)',
-                    transform: 'translateY(-2px) scale(1.03)',
+                  height: "100%",
+                  display: "flex",
+                  width: 500,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textDecoration: "none",
+                  boxShadow: "none",
+                  transition: "box-shadow 0.2s, transform 0.2s",
+                  cursor: "pointer",
+                  "&:hover": {
+                    boxShadow: "0 4px 24px 0 rgba(212, 175, 55, 0.15)",
+                    transform: "translateY(-2px) scale(1.03)",
                   },
                 }}
               >
-                <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <AccountBalance sx={{ fontSize: 40, color: palette.primary, mb: 1 }} />
-                  <Typography variant="h6" sx={{ color: palette.primary, fontWeight: 'bold', mb: 0.5 }}>
+                <CardContent sx={{ textAlign: "center", p: 3 }}>
+                  <AccountBalance
+                    sx={{ fontSize: 40, color: palette.primary, mb: 1 }}
+                  />
+                  <Typography
+                    variant="h6"
+                    sx={{ color: palette.primary, fontWeight: "bold", mb: 0.5 }}
+                  >
                     Bank Details
                   </Typography>
                   <Typography variant="body2" sx={{ color: palette.fadedText }}>
@@ -394,6 +615,154 @@ const Profile = () => {
           </Grid>
         </Grid>
       </Grid>
+
+      {/* Withdraw Dialog */}
+      <Dialog open={withdrawDialogOpen} onClose={handleCloseWithdrawDialog}>
+        <DialogTitle sx={{ color: palette.primary }}>Withdraw Request</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2, color: palette.fadedText }}>
+            Enter the amount you want to withdraw from your wallet.
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Amount"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={withdrawAmount}
+            onChange={(e) => setWithdrawAmount(e.target.value)}
+            inputProps={{ min: 1, max: walletBalance || undefined }}
+            sx={{ mb: 2 }}
+          />
+          <Typography variant="body2" sx={{ color: palette.fadedText }}>
+            Wallet Balance:{" "}
+            {walletLoading ? (
+              <CircularProgress size={16} sx={{ color: palette.primary }} />
+            ) : (
+              formatCurrency(walletBalance)
+            )}
+          </Typography>
+
+          {/* Bank/UPI Form */}
+          <Box sx={{ mt: 3, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ color: palette.primary, mb: 1 }}>
+              Withdrawal Method
+            </Typography>
+            <RadioGroup
+              row
+              value={bankFormType}
+              onChange={(e) => setBankFormType(e.target.value)}
+              sx={{ mb: 2 }}
+            >
+              <FormControlLabel
+                value="bank"
+                control={<Radio sx={{ color: palette.primary, "&.Mui-checked": { color: palette.secondary } }} />}
+                label="Bank Account"
+              />
+              <FormControlLabel
+                value="upi"
+                control={<Radio sx={{ color: palette.primary, "&.Mui-checked": { color: palette.secondary } }} />}
+                label="UPI"
+              />
+            </RadioGroup>
+            {bankFormType === "bank" ? (
+              <Box>
+                <TextField
+                  margin="dense"
+                  label="Account Number"
+                  name="accountNumber"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={bankDetails.accountNumber}
+                  onChange={handleBankDetailsChange}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  margin="dense"
+                  label="Beneficiary Name"
+                  name="beneficiaryName"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={bankDetails.beneficiaryName}
+                  onChange={handleBankDetailsChange}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  margin="dense"
+                  label="IFSC Code"
+                  name="ifsc"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={bankDetails.ifsc}
+                  onChange={handleBankDetailsChange}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  margin="dense"
+                  label="Bank Name"
+                  name="bankName"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={bankDetails.bankName}
+                  onChange={handleBankDetailsChange}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+            ) : (
+              <Box>
+                <TextField
+                  margin="dense"
+                  label="UPI ID"
+                  name="upi"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={bankDetails.upi}
+                  onChange={handleBankDetailsChange}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+            )}
+          </Box>
+
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              {success}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseWithdrawDialog} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleWithdrawRequest}
+            variant="contained"
+            sx={{
+              bgcolor: palette.primary,
+              color: palette.background,
+              "&:hover": { bgcolor: palette.secondary },
+            }}
+            disabled={withdrawLoading || walletLoading}
+          >
+            {withdrawLoading ? (
+              <CircularProgress size={24} sx={{ color: palette.background }} />
+            ) : (
+              "Request Withdraw"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Game History Section */}
       <Card sx={{ mt: 4, bgcolor: palette.card }}>
