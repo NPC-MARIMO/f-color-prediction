@@ -5,34 +5,34 @@ import { SendOtp, VerifyOtp, Register, Login } from "./authFeatures";
 const getInitialState = () => {
   try {
     const authData = localStorage.getItem('auth');
-    // console.log('localStorage auth data:', authData);
     if (authData) {
       const parsed = JSON.parse(authData);
-      // console.log('Parsed auth data:', parsed);
-      // Only restore authentication if we have valid user data
-      if (parsed.user && parsed.isAuthenticated) {
-        // console.log('Restoring auth state from localStorage');
+      // Support both user and admin in localStorage
+      if (
+        (parsed.user && parsed.isAuthenticated) ||
+        (parsed.admin && parsed.isAdminAuthenticated)
+      ) {
         return {
-          user: parsed.user,
-          isAuthenticated: parsed.isAuthenticated,
+          user: parsed.user || null,
+          admin: parsed.admin || null,
+          isAuthenticated: parsed.isAuthenticated || false,
+          isAdminAuthenticated: parsed.isAdminAuthenticated || false,
           loading: false,
           error: null,
           verified: parsed.verified || false,
         };
-      } else {
-        // console.log('Invalid auth data in localStorage, using default state');
       }
-    } else {
-      // console.log('No auth data in localStorage');
     }
   } catch (error) {
     console.error('Error parsing auth data from localStorage:', error);
   }
-  
-  console.log('Using default auth state');
+
+  // Default state
   return {
     user: null,
+    admin: null,
     isAuthenticated: false,
+    isAdminAuthenticated: false,
     loading: false,
     error: null,
     verified: false,
@@ -47,7 +47,9 @@ const authSlice = createSlice({
   reducers: {
     logout(state) {
       state.user = null;
+      state.admin = null;
       state.isAuthenticated = false;
+      state.isAdminAuthenticated = false;
       state.loading = false;
       state.error = null;
       state.verified = false;
@@ -56,6 +58,40 @@ const authSlice = createSlice({
       localStorage.removeItem('token'); // If you store token separately
       // If using cookies, clear them here as well
     },
+    // Optional: explicit admin logout
+    adminLogout(state) {
+      state.admin = null;
+      state.isAdminAuthenticated = false;
+      // Remove only admin info from localStorage
+      const authData = localStorage.getItem('auth');
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          delete parsed.admin;
+          delete parsed.isAdminAuthenticated;
+          localStorage.setItem('auth', JSON.stringify(parsed));
+        } catch (e) {
+          localStorage.removeItem('auth');
+        }
+      }
+    },
+    // Optional: explicit user logout
+    userLogout(state) {
+      state.user = null;
+      state.isAuthenticated = false;
+      // Remove only user info from localStorage
+      const authData = localStorage.getItem('auth');
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          delete parsed.user;
+          delete parsed.isAuthenticated;
+          localStorage.setItem('auth', JSON.stringify(parsed));
+        } catch (e) {
+          localStorage.removeItem('auth');
+        }
+      }
+    }
   },
   extraReducers: (builder) => {
     // SendOtp
@@ -90,7 +126,7 @@ const authSlice = createSlice({
         state.error = action.payload;
       });
 
-    // Register
+    // Register (for user)
     builder
       .addCase(Register.pending, (state) => {
         state.loading = true;
@@ -101,19 +137,27 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
-        // Save to localStorage
-        localStorage.setItem('auth', JSON.stringify({
-          user: action.payload,
-          isAuthenticated: true,
-          verified: state.verified
-        }));
+        // Save to localStorage, preserving admin if present
+        const authData = localStorage.getItem('auth');
+        let parsed = {};
+        if (authData) {
+          try {
+            parsed = JSON.parse(authData);
+          } catch (e) {
+            parsed = {};
+          }
+        }
+        parsed.user = action.payload;
+        parsed.isAuthenticated = true;
+        parsed.verified = state.verified;
+        localStorage.setItem('auth', JSON.stringify(parsed));
       })
       .addCase(Register.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
 
-    // Login
+    // Login (for user or admin)
     builder
       .addCase(Login.pending, (state) => {
         state.loading = true;
@@ -121,15 +165,37 @@ const authSlice = createSlice({
       })
       .addCase(Login.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
-        state.isAuthenticated = true;
         state.error = null;
-        // Save to localStorage
-        localStorage.setItem('auth', JSON.stringify({
-          user: action.payload,
-          isAuthenticated: true,
-          verified: state.verified
-        }));
+
+        // Determine if this is an admin login or user login
+        // This assumes the backend returns a property like isAdmin or role
+        const payload = action.payload;
+        const isAdmin = payload && (payload.isAdmin === true || payload.role === 'admin');
+
+        // Save to localStorage, preserving the other type if present
+        const authData = localStorage.getItem('auth');
+        let parsed = {};
+        if (authData) {
+          try {
+            parsed = JSON.parse(authData);
+          } catch (e) {
+            parsed = {};
+          }
+        }
+
+        if (isAdmin) {
+          state.admin = payload;
+          state.isAdminAuthenticated = true;
+          parsed.admin = payload;
+          parsed.isAdminAuthenticated = true;
+        } else {
+          state.user = payload;
+          state.isAuthenticated = true;
+          parsed.user = payload;
+          parsed.isAuthenticated = true;
+        }
+        parsed.verified = state.verified;
+        localStorage.setItem('auth', JSON.stringify(parsed));
       })
       .addCase(Login.rejected, (state, action) => {
         state.loading = false;
@@ -138,6 +204,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, adminLogout, userLogout } = authSlice.actions;
 
 export default authSlice.reducer;

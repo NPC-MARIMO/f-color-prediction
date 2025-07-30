@@ -13,12 +13,19 @@ class ApiService {
       },
     });
 
-    // Request interceptor to add User-Id header
+    // Request interceptor to add User-Id header (for both user and admin)
     this.api.interceptors.request.use(
       (config) => {
-        const user = JSON.parse(localStorage.getItem('auth') || '{}');
-        if (user.user?.id || user.user?._id) {
-          config.headers['User-Id'] = user.user?.id || user.user?._id;
+        const authData = JSON.parse(localStorage.getItem('auth') || '{}');
+        // Check for user or admin id
+        let userId = null;
+        if (authData.user?.id || authData.user?._id) {
+          userId = authData.user?.id || authData.user?._id;
+        } else if (authData.admin?.id || authData.admin?._id) {
+          userId = authData.admin?.id || authData.admin?._id;
+        }
+        if (userId) {
+          config.headers['User-Id'] = userId;
         }
         return config;
       },
@@ -125,15 +132,20 @@ class ApiService {
   }
 
   // Payment Management APIs
-  async createDepositOrder(amount) {
-    // Cashfree: POST /api/payment/create-deposit-order
-    const response = await this.api.post('/api/payment/create-deposit-order', { amount });
+  async createRazorpayOrder(amount) {
+    // Razorpay: POST /api/payment/create-razorpay-order
+    const response = await this.api.post("/api/payment/create-deposit-order", {
+      amount,
+    });
     return response.data;
   }
 
-  async verifyDepositPayment(paymentData) {
-    // Cashfree: POST /api/payment/verify-deposit-payment
-    const response = await this.api.post('/api/payment/verify-deposit-payment', paymentData);
+  async verifyRazorpayPayment(paymentData) {
+    // Razorpay: POST /api/payment/verify-razorpay-payment
+    const response = await this.api.post(
+      "/api/payment/verify-deposit-payment",
+      paymentData
+    );
     return response.data;
   }
 
@@ -144,6 +156,16 @@ class ApiService {
 
   async getTransactionHistory(page = 1, limit = 10) {
     const response = await this.api.get(`/api/payment/transaction-history?page=${page}&limit=${limit}`);
+    return response.data;
+  }
+
+  async createDepositOrder(amount) {
+    const response = await this.api.post('/api/payment/create-deposit-order', { amount });
+    return response.data;
+  }
+
+  async verifyDepositPayment(paymentData) {
+    const response = await this.api.post('/api/payment/verify-deposit-payment', paymentData);
     return response.data;
   }
 
@@ -172,14 +194,14 @@ class ApiService {
     return response.data;
   }
 
-  async getRecentTransactions(limit = 10) {
+  async getRecentTransactions() {
     const userId = this.getUserId();
     
-    const response = await this.api.get(`/api/wallet/recent-transactions?limit=${limit}`, {
+    const response = await this.api.get(`/api/payment/transaction-history`, {
       headers: {
-        'User-Id': userId,
-        'Content-Type': 'application/json'
-      }
+        "User-Id": userId,
+        "Content-Type": "application/json",
+      },
     });
     return response.data;
   }
@@ -346,7 +368,6 @@ class ApiService {
   getUserId() {
     const user = JSON.parse(localStorage.getItem('auth') || '{}');
     console.log(user);
-    
     return user.user.user?.id || user.user.user?._id;
     
   }

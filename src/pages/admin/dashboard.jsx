@@ -31,9 +31,12 @@ import {
   Block,
   CheckCircle,
   Cancel,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import apiService from '../../services/apiService';
+import { logout } from '../../store/features/auth/authSlice';
+import { useDispatch } from 'react-redux';
 
 const COLORS = {
   background: "#0F0F0F",
@@ -47,6 +50,9 @@ const COLORS = {
 };
 
 const AdminDashboard = () => {
+
+  const dispatch = useDispatch()
+
   const [dashboardData, setDashboardData] = useState({
     totalUsers: 0,
     totalTransactions: 0,
@@ -84,6 +90,11 @@ const AdminDashboard = () => {
       setLoading(false);
     }
   };
+
+  const handleLogout = () => {
+    dispatch(logout());
+  };
+
 
   const formatCurrency = (amount) => `₹${amount?.toLocaleString() || "0"}`;
 
@@ -145,6 +156,7 @@ const AdminDashboard = () => {
       </Box>
     );
   }
+  
 
   return (
     <Box
@@ -161,14 +173,24 @@ const AdminDashboard = () => {
           <Typography variant="h4" sx={{ color: COLORS.primary, fontWeight: "bold" }}>
             Admin Dashboard
           </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={loadDashboardData}
-            sx={{ color: COLORS.primary, borderColor: COLORS.primary }}
-          >
-            Refresh
-          </Button>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={loadDashboardData}
+              sx={{ color: COLORS.primary, borderColor: COLORS.primary }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<LogoutIcon />}
+              onClick={handleLogout}
+              sx={{ color: COLORS.red, borderColor: COLORS.red }}
+            >
+              Logout
+            </Button>
+          </Box>
         </Box>
 
         {error && (

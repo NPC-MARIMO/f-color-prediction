@@ -87,6 +87,24 @@ const Wallet = () => {
     }
   }, [user]);
 
+  // Load Razorpay script
+  useEffect(() => {
+    const loadRazorpayScript = () => {
+      return new Promise((resolve) => {
+        if (window.Razorpay) {
+          resolve(window.Razorpay);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(window.Razorpay);
+        script.onerror = () => reject(new Error('Razorpay SDK failed to load'));
+        document.body.appendChild(script);
+      });
+    };
+    loadRazorpayScript();
+  }, []);
+
   const loadWalletData = async () => {
     try {
       setLoading(true);
@@ -116,43 +134,47 @@ const Wallet = () => {
 
     try {
       setLoading(true);
-      const response = await apiService.createDepositOrder(parseInt(depositAmount));
+      const response = await apiService.createRazorpayOrder(parseInt(depositAmount));
       
-      // Initialize Razorpay
-      const options = {
-        key: process.env.VITE_RAZORPAY_KEY_ID,
-        amount: response.amount,
-        currency: 'INR',
-        order_id: response.orderId,
-        name: 'Color Prediction Game',
-        description: 'Wallet Deposit',
-        handler: async (response) => {
-          try {
-            await apiService.verifyDepositPayment({
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            setSuccess('Deposit successful!');
-            setShowDeposit(false);
-            setDepositAmount('');
-            loadWalletData();
-            loadTransactions();
-          } catch (err) {
-            setError('Payment verification failed');
-          }
-        },
-        prefill: {
-          name: user?.name || '',
-          email: user?.email || '',
-        },
-        theme: {
-          color: '#D4AF37',
-        },
-      };
+      if (response.success && response.order) {
+        // Initialize Razorpay
+        const options = {
+          key: response.key_id,
+          amount: response.order.amount,
+          currency: response.order.currency,
+          order_id: response.order.id,
+          name: 'Color Prediction Game',
+          description: 'Wallet Deposit',
+          handler: async (response) => {
+            try {
+              await apiService.verifyRazorpayPayment({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              setSuccess('Deposit successful!');
+              setShowDeposit(false);
+              setDepositAmount('');
+              loadWalletData();
+              loadTransactions();
+            } catch (err) {
+              setError('Payment verification failed');
+            }
+          },
+          prefill: {
+            name: user?.name || '',
+            email: user?.email || '',
+          },
+          theme: {
+            color: '#D4AF37',
+          },
+        };
 
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
+      } else {
+        setError(response.message || 'Failed to create payment order');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create deposit order');
     } finally {
