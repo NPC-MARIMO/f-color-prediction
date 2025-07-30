@@ -28,15 +28,16 @@ import {
   AccountBalance,
   Refresh,
   Visibility,
-  Block,
   CheckCircle,
   Cancel,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
-import { Link, useNavigate } from 'react-router-dom';
-import apiService from '../../services/apiService';
+import { Link } from 'react-router-dom';
 import { logout } from '../../store/features/auth/authSlice';
 import { useDispatch } from 'react-redux';
+
+// You must import your apiService for the dashboard to work
+import apiService from '../../services/apiService'; // <-- Make sure this path is correct
 
 const COLORS = {
   background: "#0F0F0F",
@@ -50,56 +51,50 @@ const COLORS = {
 };
 
 const AdminDashboard = () => {
+  const dispatch = useDispatch();
 
-  const dispatch = useDispatch()
-
-  const [dashboardData, setDashboardData] = useState({
-    totalUsers: 0,
-    totalTransactions: 0,
-    totalRevenue: 0,
-    totalDeposits: 0,
-    totalWithdrawals: 0,
-    activeGames: 0,
-    pendingWithdrawals: 0,
-  });
-  const [recentTransactions, setRecentTransactions] = useState([]);
-  const [recentUsers, setRecentUsers] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
+    const fetchDashboard = async () => {
       setLoading(true);
-      const [dashboard, transactions, users] = await Promise.all([
-        apiService.getAdminDashboard(),
-        apiService.getAdminTransactions(1, 5),
-        apiService.getAdminUsers(1, 5)
-      ]);
+      setError('');
+      try {
+        const response = await apiService.getAdminDashboard();
+        console.log(response);
+        
+        // Support both { data: ... } and direct object
+        setDashboard(response?.data?.dashboard);
+      } catch (err) {
+        setError(
+          err?.response?.data?.message ||
+          err?.message ||
+          'Failed to load dashboard data'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      setDashboardData(dashboard);
-      setRecentTransactions(transactions.transactions || []);
-      setRecentUsers(users.users || []);
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchDashboard();
+  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
   };
 
-
-  const formatCurrency = (amount) => `₹${amount?.toLocaleString() || "0"}`;
+  const formatCurrency = (amount) => {
+    if (typeof amount !== 'number') return "₹0";
+    return `₹${amount.toLocaleString()}`;
+  };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString("en-IN", {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleString("en-IN", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -156,7 +151,10 @@ const AdminDashboard = () => {
       </Box>
     );
   }
-  
+
+  // Defensive: fallback to [] if not loaded
+  const recentUsers = Array.isArray(dashboard?.recent?.users) ? dashboard.recent.users : [];
+  const recentTransactions = Array.isArray(dashboard?.recent?.transactions) ? dashboard.recent.transactions : [];
 
   return (
     <Box
@@ -177,7 +175,7 @@ const AdminDashboard = () => {
             <Button
               variant="outlined"
               startIcon={<Refresh />}
-              onClick={loadDashboardData}
+              onClick={() => window.location.reload()}
               sx={{ color: COLORS.primary, borderColor: COLORS.primary }}
             >
               Refresh
@@ -211,7 +209,7 @@ const AdminDashboard = () => {
                   </Typography>
                 </Box>
                 <Typography variant="h4" sx={{ color: COLORS.text, fontWeight: "bold" }}>
-                  {dashboardData.totalUsers?.toLocaleString() || "0"}
+                  {recentUsers.length}
                 </Typography>
               </CardContent>
             </Card>
@@ -223,11 +221,11 @@ const AdminDashboard = () => {
                 <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                   <MonetizationOn sx={{ color: COLORS.green, mr: 1 }} />
                   <Typography variant="h6" sx={{ color: COLORS.green }}>
-                    Total Revenue
+                    Today's Revenue
                   </Typography>
                 </Box>
                 <Typography variant="h4" sx={{ color: COLORS.text, fontWeight: "bold" }}>
-                  {formatCurrency(dashboardData.totalRevenue)}
+                  {formatCurrency(dashboard?.today?.revenue)}
                 </Typography>
               </CardContent>
             </Card>
@@ -239,11 +237,13 @@ const AdminDashboard = () => {
                 <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                   <AccountBalance sx={{ color: COLORS.blue, mr: 1 }} />
                   <Typography variant="h6" sx={{ color: COLORS.blue }}>
-                    Total Transactions
+                    Today's Transactions
                   </Typography>
                 </Box>
                 <Typography variant="h4" sx={{ color: COLORS.text, fontWeight: "bold" }}>
-                  {dashboardData.totalTransactions?.toLocaleString() || "0"}
+                  {typeof dashboard?.today?.transactions === 'number'
+                    ? dashboard.today.transactions
+                    : 0}
                 </Typography>
               </CardContent>
             </Card>
@@ -259,7 +259,9 @@ const AdminDashboard = () => {
                   </Typography>
                 </Box>
                 <Typography variant="h4" sx={{ color: COLORS.text, fontWeight: "bold" }}>
-                  {dashboardData.pendingWithdrawals || "0"}
+                  {typeof dashboard?.alerts?.pendingWithdrawals === 'number'
+                    ? dashboard.alerts.pendingWithdrawals
+                    : 0}
                 </Typography>
               </CardContent>
             </Card>
@@ -312,49 +314,9 @@ const AdminDashboard = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card
-              component={Link}
-              to="/admin/gameRounds"
-              sx={{
-                backgroundColor: COLORS.card,
-                textDecoration: "none",
-                cursor: "pointer",
-                transition: "transform 0.2s",
-                "&:hover": { transform: "translateY(-4px)" },
-                border: `1px solid ${COLORS.blue}`,
-              }}
-            >
-              <CardContent sx={{ textAlign: "center", py: 3 }}>
-                <Casino sx={{ fontSize: 48, color: COLORS.blue, mb: 2 }} />
-                <Typography variant="h6" sx={{ color: COLORS.blue, fontWeight: "bold" }}>
-                  Game Settings
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+          
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card
-              component={Link}
-              to="/admin/transactions"
-              sx={{
-                backgroundColor: COLORS.card,
-                textDecoration: "none",
-                cursor: "pointer",
-                transition: "transform 0.2s",
-                "&:hover": { transform: "translateY(-4px)" },
-                border: `1px solid ${COLORS.green}`,
-              }}
-            >
-              <CardContent sx={{ textAlign: "center", py: 3 }}>
-                <MonetizationOn sx={{ fontSize: 48, color: COLORS.green, mb: 2 }} />
-                <Typography variant="h6" sx={{ color: COLORS.green, fontWeight: "bold" }}>
-                  All Transactions
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+         
         </Grid>
 
         {/* Recent Activities */}
@@ -376,43 +338,51 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {recentTransactions.map((transaction) => (
-                      <TableRow key={transaction._id}>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center" }}>
-                            {getTransactionIcon(transaction.type)}
-                            <Typography sx={{ ml: 1, textTransform: "capitalize" }}>
-                              {transaction.type}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography
-                            sx={{
-                              color: transaction.type === "deposit" || transaction.type === "win" 
-                                ? COLORS.green 
-                                : COLORS.red,
-                            }}
-                          >
-                            {transaction.type === "deposit" || transaction.type === "win" ? "+" : "-"}
-                            {formatCurrency(transaction.amount)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={transaction.status}
-                            size="small"
-                            sx={{
-                              backgroundColor: getStatusColor(transaction.status),
-                              color: "#fff",
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: COLORS.fadedText }}>
-                          {formatDate(transaction.createdAt)}
+                    {recentTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ color: COLORS.fadedText }}>
+                          No recent transactions.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      recentTransactions.map((transaction) => (
+                        <TableRow key={transaction._id}>
+                          <TableCell>
+                            <Box sx={{ display: "flex", alignItems: "center" }}>
+                              {getTransactionIcon(transaction.type)}
+                              <Typography sx={{ ml: 1, textTransform: "capitalize" }}>
+                                {transaction.type}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              sx={{
+                                color: transaction.type === "deposit" || transaction.type === "win"
+                                  ? COLORS.green
+                                  : COLORS.red,
+                              }}
+                            >
+                              {transaction.type === "deposit" || transaction.type === "win" ? "+" : "-"}
+                              {formatCurrency(transaction.amount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={transaction.status}
+                              size="small"
+                              sx={{
+                                backgroundColor: getStatusColor(transaction.status),
+                                color: "#fff",
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: COLORS.fadedText }}>
+                            {formatDate(transaction.createdAt)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -429,47 +399,55 @@ const AdminDashboard = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: COLORS.primary }}>Name</TableCell>
                       <TableCell sx={{ color: COLORS.primary }}>Email</TableCell>
+                      <TableCell sx={{ color: COLORS.primary }}>Joined</TableCell>
                       <TableCell sx={{ color: COLORS.primary }}>Status</TableCell>
                       <TableCell sx={{ color: COLORS.primary }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {recentUsers.map((user) => (
-                      <TableRow key={user._id}>
-                        <TableCell sx={{ color: COLORS.text }}>
-                          {user.name || "N/A"}
-                        </TableCell>
-                        <TableCell sx={{ color: COLORS.text }}>
-                          {user.email}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={user.isBlocked ? "Blocked" : "Active"}
-                            size="small"
-                            sx={{
-                              backgroundColor: user.isBlocked ? COLORS.red : COLORS.green,
-                              color: "#fff",
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: "flex", gap: 1 }}>
-                            <Tooltip title="View Details">
-                              <IconButton size="small" sx={{ color: COLORS.primary }}>
-                                <Visibility />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={user.isBlocked ? "Unblock" : "Block"}>
-                              <IconButton size="small" sx={{ color: user.isBlocked ? COLORS.green : COLORS.red }}>
-                                {user.isBlocked ? <CheckCircle /> : <Block />}
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
+                    {recentUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ color: COLORS.fadedText }}>
+                          No recent users.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      recentUsers.map((user) => (
+                        <TableRow key={user._id}>
+                          <TableCell sx={{ color: COLORS.text }}>
+                            {user.email}
+                          </TableCell>
+                          <TableCell sx={{ color: COLORS.text }}>
+                            {formatDate(user.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label="Active"
+                              size="small"
+                              sx={{
+                                backgroundColor: COLORS.green,
+                                color: "#fff",
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: "flex", gap: 1 }}>
+                              <Tooltip title="View Details">
+                                <IconButton
+                                  size="small"
+                                  sx={{ color: COLORS.primary }}
+                                  component={Link}
+                                  to={`/admin/users/${user._id}`}
+                                >
+                                  <Visibility />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>

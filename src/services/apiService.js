@@ -285,7 +285,7 @@ class ApiService {
   // Admin Dashboard API
   async getAdminDashboard() {
     const response = await this.api.get('/api/admin/dashboard');
-    return response.data;
+    return response;
   }
 
   // Admin Transaction APIs
