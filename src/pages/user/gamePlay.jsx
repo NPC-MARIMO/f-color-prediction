@@ -644,7 +644,7 @@ const RouletteGame = () => {
               alignItems: "center",
             }}
           >
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold", color : "#fff" }}>
               COLOR WHEEL
             </Typography>
             {/* Wheel Visualization */}
@@ -769,7 +769,7 @@ const RouletteGame = () => {
               boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
             }}
           >
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" , color:"#fff"}}>
               PLACE YOUR BET
             </Typography>
             {/* Balance Display */}
@@ -893,7 +893,7 @@ const RouletteGame = () => {
               }}
             >
               <Typography sx={{ color: "#AAA" }}>YOUR BET:</Typography>
-              <Typography sx={{ fontWeight: "bold" }}>
+              <Typography sx={{ fontWeight: "bold", color : "#fff" }}>
                 {selectedBet
                   ? `${selectedBet.label} (${formatINR(selectedBet.amount)})`
                   : "None"}
