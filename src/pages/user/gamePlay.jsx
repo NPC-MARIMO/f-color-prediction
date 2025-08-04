@@ -27,12 +27,16 @@ const COLORS = {
   red: "#E11D48",
   green: "#10B981",
   blue: "#3B82F6",
+  yellow: "#FACC15",
+  purple: "#A21CAF",
 };
 
 const BET_OPTIONS = [
   { label: "RED", value: "red", color: COLORS.red, payout: 1.9 },
   { label: "GREEN", value: "green", color: COLORS.green, payout: 1.9 },
   { label: "BLUE", value: "blue", color: COLORS.blue, payout: 1.9 },
+  { label: "YELLOW", value: "yellow", color: COLORS.yellow, payout: 1.9 },
+  { label: "PURPLE", value: "purple", color: COLORS.purple, payout: 1.9 },
 ];
 
 const PHASES = {
@@ -167,7 +171,6 @@ const RouletteGame = () => {
         setIsSpinning(false);
         setWheelTransition("none");
 
-  
         // Enable betting for next round 30 seconds after completion
         enableBettingTimeoutRef.current = setTimeout(() => {
           console.log("Enabling betting for next round");
@@ -410,7 +413,15 @@ const RouletteGame = () => {
     console.log("triggerWheelAnimation called with resultColor:", resultColor);
     console.log("Current isSpinning state:", isSpinning);
 
-    const colorToAngle = { red: 0, green: 120, blue: 240 };
+    // 5 colors: red, green, blue, yellow, purple
+    // Angles: 0, 72, 144, 216, 288
+    const colorToAngle = {
+      red: 0,
+      green: 72,
+      blue: 144,
+      yellow: 216,
+      purple: 288,
+    };
     const spins = 5;
     const targetAngle = colorToAngle[resultColor];
     const currentRotation = prevTargetRef.current % 360;
@@ -648,7 +659,7 @@ const RouletteGame = () => {
               COLOR WHEEL
             </Typography>
             {/* Wheel Visualization */}
-            <Box sx={{ position: "relative", width: 320, height: 320, mb: 4 }}>
+            <Box sx={{ position: "relative", width: 320, height: 320, mb: 4,  }}>
               {/* Pointer */}
               <Box
                 sx={{
@@ -682,26 +693,44 @@ const RouletteGame = () => {
                 }}
                 className={isContinuousSpinning ? "wheel-spin-infinite" : ""}
               >
-                {/* Red sector */}
+                {/* 5 sectors: red, green, blue, yellow, purple */}
+                {/* Each sector is 72 degrees */}
+                {/* Red sector: 0-72 */}
                 <path
-                  d="M160,160 L160,20 A140,140 0 0,1 280.62,230.62 Z"
+                  d="M160,160 L160,20 A140,140 0 0,1 293.77,85.98 Z"
                   fill={winningColor ? COLORS[winningColor] : COLORS.red}
                   className={winningColor ? "wheel-sector-transition" : ""}
                   stroke="#fff"
                   strokeWidth="2"
                 />
-                {/* Green sector */}
+                {/* Green sector: 72-144 */}
                 <path
-                  d="M160,160 L280.62,230.62 A140,140 0 0,1 39.38,230.62 Z"
+                  d="M160,160 L293.77,85.98 A140,140 0 0,1 245.98,293.77 Z"
                   fill={winningColor ? COLORS[winningColor] : COLORS.green}
                   className={winningColor ? "wheel-sector-transition" : ""}
                   stroke="#fff"
                   strokeWidth="2"
                 />
-                {/* Blue sector */}
+                {/* Blue sector: 144-216 */}
                 <path
-                  d="M160,160 L39.38,230.62 A140,140 0 0,1 160,20 Z"
+                  d="M160,160 L245.98,293.77 A140,140 0 0,1 74.02,293.77 Z"
                   fill={winningColor ? COLORS[winningColor] : COLORS.blue}
+                  className={winningColor ? "wheel-sector-transition" : ""}
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                {/* Yellow sector: 216-288 */}
+                <path
+                  d="M160,160 L74.02,293.77 A140,140 0 0,1 26.23,85.98 Z"
+                  fill={winningColor ? COLORS[winningColor] : COLORS.yellow}
+                  className={winningColor ? "wheel-sector-transition" : ""}
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                {/* Purple sector: 288-360 */}
+                <path
+                  d="M160,160 L26.23,85.98 A140,140 0 0,1 160,20 Z"
+                  fill={winningColor ? COLORS[winningColor] : COLORS.purple}
                   className={winningColor ? "wheel-sector-transition" : ""}
                   stroke="#fff"
                   strokeWidth="2"
@@ -709,32 +738,60 @@ const RouletteGame = () => {
                 {/* Center circle */}
                 <circle cx="160" cy="160" r="40" fill={COLORS.primary} />
                 {/* Labels */}
+                {/* Red label */}
                 <text
-                  x="160"
-                  y="45"
+                  x={160}
+                  y={35}
                   textAnchor="middle"
                   fill="white"
                   fontWeight="bold"
+                  fontSize="18"
                 >
                   RED
                 </text>
+                {/* Green label */}
                 <text
-                  x="265"
-                  y="245"
+                  x={275}
+                  y={90}
                   textAnchor="middle"
                   fill="white"
                   fontWeight="bold"
+                  fontSize="18"
                 >
                   GREEN
                 </text>
+                {/* Blue label */}
                 <text
-                  x="55"
-                  y="245"
+                  x={245}
+                  y={285}
                   textAnchor="middle"
                   fill="white"
                   fontWeight="bold"
+                  fontSize="18"
                 >
                   BLUE
+                </text>
+                {/* Yellow label */}
+                <text
+                  x={75}
+                  y={285}
+                  textAnchor="middle"
+                  fill="white"
+                  fontWeight="bold"
+                  fontSize="18"
+                >
+                  YELLOW
+                </text>
+                {/* Purple label */}
+                <text
+                  x={45}
+                  y={90}
+                  textAnchor="middle"
+                  fill="white"
+                  fontWeight="bold"
+                  fontSize="18"
+                >
+                  PURPLE
                 </text>
               </svg>
             </Box>
@@ -875,7 +932,7 @@ const RouletteGame = () => {
                     }}
                   >
                     <span>{bet.label}</span>
-                    <span>1.9x</span>
+                    <span>2x</span>
                   </Button>
                 ))}
               </Box>

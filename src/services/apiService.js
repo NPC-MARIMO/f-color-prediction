@@ -170,7 +170,7 @@ class ApiService {
   }
 
   // Wallet Management APIs
-  async getWalletBalance() {
+  async  getWalletBalance() {
     const userId = this.getUserId();
     
     const response = await this.api.get('/api/wallet/balance', {
