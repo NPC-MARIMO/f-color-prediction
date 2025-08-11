@@ -40,14 +40,11 @@ const SignupForm = () => {
 
   // Debug: Log the auth state
   useEffect(() => {
-    console.log('Auth state:', { isAuthenticated, loading, error, verified });
   }, [isAuthenticated, loading, error, verified]);
 
   // Navigate to profile if already authenticated
   useEffect(() => {
-    console.log('Checking authentication, isAuthenticated:', isAuthenticated);
     if (isAuthenticated) {
-      console.log('Redirecting to /user/profile');
       navigate("/user/profile");
     }
   }, [isAuthenticated, navigate]);
@@ -56,8 +53,6 @@ const SignupForm = () => {
   useEffect(() => {
     // Clear any existing auth data for testing
     localStorage.removeItem('auth');
-    console.log('Cleared localStorage auth data');
-    console.log();
   }, []);
 
   const handleChange = (field) => (event) => {
@@ -88,18 +83,14 @@ const SignupForm = () => {
 
     try {
       const result = await dispatch(SendOtp(formData.email));
-      console.log('SendOtp result:', result);
       
       if (SendOtp.fulfilled.match(result)) {
-        console.log('OTP sent successfully, setting otpSent to true');
       setOtpSent(true);
       setSuccess("OTP sent to your email!");
       } else {
-        console.log('OTP send failed:', result.payload);
         setLocalError(result.payload?.message || "Failed to send OTP. Please try again.");
       }
     } catch (err) {
-      console.log('OTP send error:', err);
       setLocalError("Failed to send OTP. Please try again.");
     } finally {
       setOtpLoading(false);

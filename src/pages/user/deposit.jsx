@@ -77,7 +77,6 @@ const DepositPage = () => {
       );
 
       setDepositHistory(response.data.transactions || response.transactions || []);
-      console.log(response,'response');
       
     } catch (error) {
       console.error("Error fetching deposit history:", error);

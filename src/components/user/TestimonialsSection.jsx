@@ -17,7 +17,7 @@ const testimonials = [
     title: "Legendary Color Seer",
     avatar: "🧝‍♀️",
     rating: 5,
-    text: "Win2Win transformed my understanding of color prophecy. The ChromaOrb never lies, and the rewards are beyond magical! I've earned more gold in a month than in years of traditional questing.",
+    text: "Win2Win transformed my understanding of color prophecy. The Win2Win never lies, and the rewards are beyond magical! I've earned more gold in a month than in years of traditional questing.",
   },
   {
     id: "testimonial-2",
@@ -33,7 +33,7 @@ const testimonials = [
     title: "High Priestess of Colors",
     avatar: "🌙",
     rating: 5,
-    text: "The mystical energy of the ChromaOrb resonates with my soul. This isn't just a game - it's a spiritual journey where intuition meets destiny. The community of fellow seers is incredibly supportive.",
+    text: "The mystical energy of the Win2Win resonates with my soul. This isn't just a game - it's a spiritual journey where intuition meets destiny. The community of fellow seers is incredibly supportive.",
   },
 ];
 

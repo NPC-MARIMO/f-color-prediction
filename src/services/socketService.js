@@ -22,14 +22,12 @@ class SocketService {
   // Setup event listeners
   setupEventListeners() {
     this.socket.on('connect', () => {
-      console.log('Socket connected');
       this.isConnected = true;
       this.emit('connect');
       this.joinUser();
     });
 
     this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
       this.isConnected = false;
       this.emit('disconnect');
     });
@@ -41,54 +39,44 @@ class SocketService {
 
     // User Events
     this.socket.on('joined:user', (data) => {
-      console.log('User joined:', data);
       this.emit('joined:user', data);
     });
 
     // Room Events
     this.socket.on('room:joined', (data) => {
-      console.log('Room joined:', data);
       this.emit('room:joined', data);
     });
 
     this.socket.on('room:left', (data) => {
-      console.log('Room left:', data);
       this.emit('room:left', data);
     });
 
     this.socket.on('room:update', (data) => {
-      console.log('Room update:', data);
       this.emit('room:update', data);
     });
 
     this.socket.on('player:joined', (data) => {
-      console.log('Player joined:', data);
       this.emit('player:joined', data);
     });
 
     this.socket.on('player:left', (data) => {
-      console.log('Player left:', data);
       this.emit('player:left', data);
     });
 
     // Game Events
     this.socket.on('game:started', (data) => {
-      console.log('Game started:', data);
       this.emit('game:started', data);
     });
 
     this.socket.on('betting:started', (data) => {
-      console.log('Betting started:', data);
       this.emit('betting:started', data);
     });
 
     this.socket.on('color:bet-placed', (data) => {
-      console.log('Color bet placed:', data);
       this.emit('color:bet-placed', data);
     });
 
     this.socket.on('color:bet-confirmed', (data) => {
-      console.log('Color bet confirmed:', data);
       this.emit('color:bet-confirmed', data);
     });
 
@@ -97,49 +85,40 @@ class SocketService {
     });
 
     this.socket.on('timer:update', (data) => {
-      console.log('Timer update received:', data);
       this.emit('timer:update', data);
     });
 
     this.socket.on('game:result', (data) => {
-      console.log('Game result:', data);
       this.emit('game:result', data);
     });
 
     // Round Events
     this.socket.on('round:update', (data) => {
-      console.log('Round update:', data);
       this.emit('round:update', data);
     });
 
     this.socket.on('round:result', (data) => {
-      console.log('Round result:', data);
       this.emit('round:result', data);
     });
 
     this.socket.on('round:current', (data) => {
-      console.log('Current round:', data);
       this.emit('round:current', data);
     });
 
     // Data Events
     this.socket.on('available:rooms', (data) => {
-      console.log('Available rooms:', data);
       this.emit('available:rooms', data);
     });
 
     this.socket.on('room:details', (data) => {
-      console.log('Room details:', data);
       this.emit('room:details', data);
     });
 
     this.socket.on('wallet:balance', (data) => {
-      console.log('Wallet balance:', data);
       this.emit('wallet:balance', data);
     });
 
     this.socket.on('game:history', (data) => {
-      console.log('Game history:', data);
       this.emit('game:history', data);
     });
   }

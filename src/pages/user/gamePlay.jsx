@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Typography,
   Button,
@@ -15,38 +15,43 @@ import {
   useTheme,
   TextField,
   CircularProgress,
+  Grid,
 } from "@mui/material";
-import { MonetizationOn, AccessTime } from "@mui/icons-material";
+import { MonetizationOn, AccessTime, History } from "@mui/icons-material";
 import apiService from "../../services/apiService";
 import socketService from "../../services/socketService";
 
 const COLORS = {
-  background: "#121212",
-  primary: "#D4AF37",
+  background: "#0f172a",
+  primary: "#2563eb",
   text: "#FFFFFF",
-  red: "#E11D48",
-  green: "#10B981",
-  blue: "#3B82F6",
-  yellow: "#FACC15",
-  purple: "#A21CAF",
+  red: "#ef4444",
+  green: "#22c55e",
+  violet: "#8b5cf6",
 };
 
 const BET_OPTIONS = [
-  { label: "RED", value: "red", color: COLORS.red, payout: 1.9 },
-  { label: "GREEN", value: "green", color: COLORS.green, payout: 1.9 },
-  { label: "BLUE", value: "blue", color: COLORS.blue, payout: 1.9 },
-  { label: "YELLOW", value: "yellow", color: COLORS.yellow, payout: 1.9 },
-  { label: "PURPLE", value: "purple", color: COLORS.purple, payout: 1.9 },
+  { label: "Green", value: "green", color: COLORS.green, payout: 1.9 },
+  { label: "Violet", value: "violet", color: COLORS.violet, payout: 3.3 },
+  { label: "Red", value: "red", color: COLORS.red, payout: 1.9 },
 ];
+
+const GAME_MODES = [
+  { label: "WinGo 30sec", value: "30sec" },
+  { label: "WinGo 1 Min", value: "1min" },
+  { label: "WinGo 3 Min", value: "3min" },
+  { label: "WinGo 5 Min", value: "5min" },
+];
+
+const MULTIPLIERS = ["X1", "X5", "X10", "X20", "X50", "X100"];
 
 const PHASES = {
   BETTING: "betting",
   SPINNING: "spinning",
   RESULTS: "completed",
 };
-const SPIN_DURATION = 1;
 
-const RouletteGame = () => {
+const WinGoGame = () => {
   const [round, setRound] = useState(null);
   const [timer, setTimer] = useState(0);
   const [betAmount, setBetAmount] = useState(10);
@@ -58,29 +63,17 @@ const RouletteGame = () => {
   });
   const [confirmBetOpen, setConfirmBetOpen] = useState(false);
   const [pendingBet, setPendingBet] = useState(null);
-  const [wheelRotation, setWheelRotation] = useState(0);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [wheelTransition, setWheelTransition] = useState("none");
-  const prevTargetRef = useRef(0);
   const [balance, setBalance] = useState(0);
   const [userId, setUserId] = useState(null);
   const [isPlacingBet, setIsPlacingBet] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
-  const pendingResultRef = useRef(null);
-  const refreshTimeoutRef = useRef(null);
-  const [isContinuousSpinning, setIsContinuousSpinning] = useState(false);
-  const enableBettingTimeoutRef = useRef(null);
-  const [winningColor, setWinningColor] = useState(null);
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
-      if (enableBettingTimeoutRef.current)
-        clearTimeout(enableBettingTimeoutRef.current);
-    };
-  }, []);
+  const [gameMode, setGameMode] = useState("30sec");
+  const [multiplier, setMultiplier] = useState("X1");
+  const [betType, setBetType] = useState("color"); // 'color', 'bigSmall', or 'number'
+  const [winningNumber, setWinningNumber] = useState(null);
+  const [gameHistory, setGameHistory] = useState([]);
+  const [chosenNumber, setChosenNumber] = useState(""); // For number bet
 
   // On mount: get userId, connect to socket, request round, fetch balance
   useEffect(() => {
@@ -111,12 +104,22 @@ const RouletteGame = () => {
     }
   }, []);
 
+  // --- ADDED: Refresh page 5 seconds after winningNumber is set ---
+  useEffect(() => {
+    if (winningNumber !== null) {
+      const timeout = setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [winningNumber]);
+  // --- END ADDED ---
+
   // Socket connection and listeners
   useEffect(() => {
     if (!userId) return;
 
     const handleConnect = () => {
-      console.log("Socket connected");
       setConnectionStatus("connected");
       setIsLoading(false);
       socketService.getCurrentRound();
@@ -124,7 +127,6 @@ const RouletteGame = () => {
     };
 
     const handleDisconnect = () => {
-      console.log("Socket disconnected");
       setConnectionStatus("disconnected");
       setSnackbar({
         open: true,
@@ -133,77 +135,16 @@ const RouletteGame = () => {
       });
     };
 
-    const checkConnectionStatus = () => {
-      const isConnected = socketService.getConnectionStatus();
-      if (isConnected) {
-        setConnectionStatus("connected");
-        setIsLoading(false);
-        socketService.getCurrentRound();
-        fetchCurrentRound();
-      } else {
-        setConnectionStatus("disconnected");
-      }
-    };
-
-    checkConnectionStatus();
-
     const handleRoundUpdate = (data) => {
-      console.log("[SOCKET] round:update event received:", data);
       setRound(data);
       updateTimerFromRound(data);
-
-      // Clear any existing timeouts
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
-      }
-      if (enableBettingTimeoutRef.current) {
-        clearTimeout(enableBettingTimeoutRef.current);
-        enableBettingTimeoutRef.current = null;
-      }
-
-      if (data.status === PHASES.SPINNING) {
-        setIsContinuousSpinning(true);
-        setIsSpinning(true);
-      } else if (data.status === PHASES.RESULTS) {
-        // When status changes to completed, stop spinning
-        setIsContinuousSpinning(false);
-        setIsSpinning(false);
-        setWheelTransition("none");
-
-        // Enable betting for next round 30 seconds after completion
-        enableBettingTimeoutRef.current = setTimeout(() => {
-          console.log("Enabling betting for next round");
-          setSelectedBet(null); // Clear previous bet
-        }, 30000);
-      } else if (data.status === PHASES.BETTING) {
-        setWinningColor(null); // Reset color transition for new round
-        // Clear any pending timeouts if we're back to betting phase
-        if (refreshTimeoutRef.current) {
-          clearTimeout(refreshTimeoutRef.current);
-          refreshTimeoutRef.current = null;
-        }
-        if (enableBettingTimeoutRef.current) {
-          clearTimeout(enableBettingTimeoutRef.current);
-          enableBettingTimeoutRef.current = null;
-        }
-      }
-    };
-
-    const showResultAfterSpin = (resultData) => {
-      setRound((prev) => ({ ...prev, ...resultData, status: PHASES.RESULTS }));
-      setWinningColor(resultData.resultColor); // Set winning color for transition
-      updateTimerFromRound(resultData);
-      handleRoundResult(resultData.resultColor);
     };
 
     const handleRoundResultEvent = (data) => {
-      console.log("[SOCKET] round:result event received:", data);
-      if (isSpinning) {
-        pendingResultRef.current = data;
-      } else {
-        showResultAfterSpin(data);
-      }
+      setRound((prev) => ({ ...prev, ...data, status: PHASES.RESULTS }));
+      setWinningNumber(data.resultNumber);
+      handleRoundResult(data.resultNumber);
+      updateGameHistory(data);
     };
 
     const handleGameTimeUpdate = (data) => {
@@ -238,20 +179,9 @@ const RouletteGame = () => {
 
     // Initial fetches
     refreshBalance();
-    fetchHistory();
-
-    // Periodic connection status check
-    const connectionCheckInterval = setInterval(() => {
-      const isConnected = socketService.updateConnectionStatus();
-      if (isConnected && connectionStatus === "disconnected") {
-        setConnectionStatus("connected");
-      } else if (!isConnected && connectionStatus === "connected") {
-        setConnectionStatus("disconnected");
-      }
-    }, 3000);
+    fetchGameHistory();
 
     return () => {
-      clearInterval(connectionCheckInterval);
       socketService.off("connect", handleConnect);
       socketService.off("disconnect", handleDisconnect);
       socketService.off("round:update", handleRoundUpdate);
@@ -262,32 +192,9 @@ const RouletteGame = () => {
     };
   }, [userId]);
 
-  // Fetch current round status
-  const fetchCurrentRound = async () => {
-    try {
-      console.log("Fetching current round via API...");
-      const response = await apiService.getCurrentRound();
-      console.log("API response for current round:", response);
-      setRound(response.round || response);
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Error fetching current round:", err);
-      setSnackbar({
-        open: true,
-        message: "Failed to fetch game status",
-        severity: "error",
-      });
-      setIsLoading(false);
-    }
-  };
-
   // Timer logic
   useEffect(() => {
-    console.log("Timer effect triggered with round:", round);
-    console.log("Round endTime:", round?.endTime);
-
     if (!round?.endTime) {
-      console.log("No endTime found, clearing timer");
       setTimer(0);
       return;
     }
@@ -299,86 +206,89 @@ const RouletteGame = () => {
       setTimer(timeLeft);
     };
 
-    // Set initial timer
     updateTimer();
-
-    // Start interval
     const interval = setInterval(updateTimer, 1000);
 
-    console.log("Timer interval started for round:", round._id || "unknown");
+    return () => clearInterval(interval);
+  }, [round?.endTime]);
 
-    return () => {
-      console.log("Clearing timer interval");
-      clearInterval(interval);
-    };
-  }, [round?.endTime, round?._id]);
-
-  // When round status is completed, wait 25 seconds and then refresh the page
-  useEffect(() => {
-    if (round?.status === PHASES.RESULTS) {
-      const timeout = setTimeout(() => {
-        window.location.reload();
-      }, 30000  );
-      return () => clearTimeout(timeout);
+  const fetchCurrentRound = async () => {
+    try {
+      const response = await apiService.getCurrentRound();
+      setRound(response.round || response);
+      setIsLoading(false);
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch game status",
+        severity: "error",
+      });
+      setIsLoading(false);
     }
-  }, [round?.status]);
+  };
 
-  // Fetch wallet balance
   const refreshBalance = async () => {
     try {
       if (!userId) return;
       const res = await apiService.getWalletBalance();
       setBalance(res?.balance || res?.wallet?.balance || 0);
     } catch (err) {
-      console.error("Error refreshing balance:", err);
+      // ignore
     }
   };
 
-  // Fetch round history
-  const fetchHistory = async () => {
+  const fetchGameHistory = async () => {
     try {
-      if (!userId) return;
       const res = await apiService.getGameHistory(1, 10);
-      const history = res?.rounds || res?.history || res || [];
-      console.log("[BACKEND] Game history:", history);
+      setGameHistory(res?.rounds || res?.history || res || []);
     } catch (err) {
-      setSnackbar({
-        open: true,
-        message: "Failed to fetch history",
-        severity: "error",
-      });
-      console.error("Error fetching history:", err);
+      // ignore
     }
   };
 
-  // Place bet
+  const updateGameHistory = (newRound) => {
+    setGameHistory((prev) => [newRound, ...prev.slice(0, 9)]);
+  };
+
+  // --- REWRITE: Place bet using /api/game/place-bet and support color, number, size ---
   const handleConfirmBet = async () => {
     if (!pendingBet || !userId) {
       setConfirmBetOpen(false);
       return;
     }
     setIsPlacingBet(true);
+
+    // Prepare bet payload
+    let payload = {
+      amount: betAmount * parseInt(multiplier.substring(1)),
+    };
+    if (betType === "color") {  
+      payload.chosenColor = pendingBet.value;
+    } else if (betType === "bigSmall") {
+      payload.chosenSize = pendingBet.value;
+    } else if (betType === "number") {
+      payload.chosenNumber = chosenNumber;
+    }
+
     try {
-      await apiService.placeColorBet({
-        chosenColor: pendingBet.value,
-        amount: betAmount,
+      // Use the new controller route
+      const res = await apiService.placeBetOnCurrentRound(payload);
+      setSelectedBet({
+        ...pendingBet,
+        amount: payload.amount,
+        ...(betType === "number" ? { value: chosenNumber, label: `Number ${chosenNumber}` } : {}),
       });
-      setSelectedBet({ ...pendingBet, amount: betAmount });
       setConfirmBetOpen(false);
       setSnackbar({
         open: true,
-        message: `Bet placed: ₹${betAmount} on ${pendingBet.label}`,
+        message: `Bet placed: ₹${payload.amount} on ${betType === "number" ? `Number ${chosenNumber}` : pendingBet.label}`,
         severity: "success",
       });
       refreshBalance();
-      // Call fetchCurrentRound after 2 seconds
-      setTimeout(() => {
-        fetchCurrentRound();
-      }, 2000);
     } catch (err) {
       setSnackbar({
         open: true,
-        message: err.response?.data?.message || "Failed to place bet",
+        message: err?.response?.data?.message || "Failed to place bet",
         severity: "error",
       });
     } finally {
@@ -387,11 +297,42 @@ const RouletteGame = () => {
     }
   };
 
-  // Handle round result
-  const handleRoundResult = (resultColor) => {
+  // --- END REWRITE ---
+
+  const handleRoundResult = (resultNumber) => {
     if (!selectedBet) return;
-    if (selectedBet.value === resultColor) {
-      const winAmount = Math.round(selectedBet.amount * selectedBet.payout);
+
+    // Determine if bet won based on result number
+    let isWin = false;
+    if (betType === "color") {
+      if (selectedBet.value === "green" && resultNumber === 5) {
+        isWin = true;
+      } else if (
+        selectedBet.value === "violet" &&
+        [1, 3, 7, 9].includes(resultNumber)
+      ) {
+        isWin = true;
+      } else if (
+        selectedBet.value === "red" &&
+        [0, 2, 4, 6, 8].includes(resultNumber)
+      ) {
+        isWin = true;
+      }
+    } else if (betType === "bigSmall") {
+      if (
+        (selectedBet.value === "big" && resultNumber >= 5) ||
+        (selectedBet.value === "small" && resultNumber < 5)
+      ) {
+        isWin = true;
+      }
+    } else if (betType === "number") {
+      if (parseInt(selectedBet.value) === resultNumber) {
+        isWin = true;
+      }
+    }
+
+    if (isWin) {
+      const winAmount = Math.round(selectedBet.amount * (selectedBet.payout || 9)); // payout for number is 9x
       setSnackbar({
         open: true,
         message: `You won ₹${winAmount}!`,
@@ -408,81 +349,24 @@ const RouletteGame = () => {
     refreshBalance();
   };
 
-  // Wheel animation
-  const triggerWheelAnimation = (resultColor) => {
-    console.log("triggerWheelAnimation called with resultColor:", resultColor);
-    console.log("Current isSpinning state:", isSpinning);
-
-    // 5 colors: red, green, blue, yellow, purple
-    // Angles: 0, 72, 144, 216, 288
-    const colorToAngle = {
-      red: 0,
-      green: 72,
-      blue: 144,
-      yellow: 216,
-      purple: 288,
-    };
-    const spins = 5;
-    const targetAngle = colorToAngle[resultColor];
-    const currentRotation = prevTargetRef.current % 360;
-    const delta = (360 + targetAngle - currentRotation) % 360;
-    const target = prevTargetRef.current + spins * 360 + delta;
-
-    console.log(
-      "Wheel animation - current rotation:",
-      prevTargetRef.current,
-      "target:",
-      target
-    );
-
-    setWheelTransition("none");
-    setWheelRotation(prevTargetRef.current);
-    setTimeout(() => {
-      setWheelTransition(
-        `transform ${SPIN_DURATION}s cubic-bezier(.17,.67,.83,.67)`
-      );
-      setWheelRotation(target);
-      console.log(
-        "Wheel animation started, will complete in",
-        SPIN_DURATION,
-        "seconds"
-      );
-      setTimeout(() => {
-        console.log("Wheel animation completed");
-        setIsSpinning(false);
-        prevTargetRef.current = target;
-        if (pendingResultRef.current) {
-          showResultAfterSpin(pendingResultRef.current);
-          pendingResultRef.current = null;
-        }
-      }, SPIN_DURATION * 1000);
-    }, 20);
-  };
-
-  // Timer helper
   const updateTimerFromRound = (roundData) => {
-    console.log("updateTimerFromRound called with:", roundData);
-    if (!roundData?.endTime) {
-      console.log("No endTime in roundData, skipping timer update");
-      return;
-    }
+    if (!roundData?.endTime) return;
     const end = new Date(roundData.endTime).getTime();
     const now = Date.now();
     const timeLeft = Math.max(0, Math.floor((end - now) / 1000));
-    console.log(
-      "updateTimerFromRound - endTime:",
-      roundData.endTime,
-      "timeLeft:",
-      timeLeft
-    );
     setTimer(timeLeft);
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   const formatINR = (amount) => `₹${amount?.toLocaleString() || "0"}`;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  // Loading state
   if (isLoading) {
     return (
       <Box
@@ -502,19 +386,17 @@ const RouletteGame = () => {
             ? "Connecting to game server..."
             : "Loading game status..."}
         </Typography>
-        <Button
-          variant="outlined"
-          onClick={() => {
-            setIsLoading(false);
-            fetchCurrentRound();
-          }}
-          sx={{ color: COLORS.primary, borderColor: COLORS.primary }}
-        >
-          Skip Loading
-        </Button>
       </Box>
     );
   }
+
+  // --- Number bet options for UI ---
+  const NUMBER_OPTIONS = Array.from({ length: 10 }, (_, i) => ({
+    label: i.toString(),
+    value: i.toString(),
+    color: COLORS.primary,
+    payout: 9,
+  }));
 
   return (
     <Box
@@ -526,115 +408,127 @@ const RouletteGame = () => {
       }}
     >
       <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-        {/* Connection Status */}
-        <Paper
+        {/* Header */}
+        <Box
           sx={{
-            p: 1,
-            mb: 2,
-            backgroundColor:
-              connectionStatus === "connected" ? "#1E1E1E" : "#2D1B1B",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderRadius: "8px",
-            border: `1px solid ${
-              connectionStatus === "connected" ? COLORS.green : COLORS.red
-            }`,
+            mb: 2,
           }}
         >
           <Typography
-            variant="body2"
-            sx={{
-              color:
-                connectionStatus === "connected" ? COLORS.green : COLORS.red,
-            }}
-          >
-            {connectionStatus === "connected"
-              ? "🟢 Connected"
-              : "🔴 Disconnected"}
-          </Typography>
-          <Button
-            size="small"
-            onClick={fetchCurrentRound}
-            sx={{ color: COLORS.primary }}
-          >
-            Refresh
-          </Button>
-        </Paper>
+            variant="h5"
+            sx={{ fontWeight: "bold", color: COLORS.primary }}
+          ></Typography>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              variant="contained"
+              size="small"
+              sx={{ backgroundColor: COLORS.primary }}
+            >
+              Withdraw
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              sx={{ backgroundColor: COLORS.green }}
+            >
+              Deposit
+            </Button>
+          </Box>
+        </Box>
 
-        {/* Debug Info */}
-        {process.env.NODE_ENV === "development" && (
-          <Paper
-            sx={{
-              p: 1,
-              mb: 2,
-              backgroundColor: "#2D1B1B",
-              borderRadius: "8px",
-              fontSize: "12px",
-            }}
-          >
-            <Typography variant="caption" sx={{ color: "#AAA" }}>
-              Debug: Round ID: {round?._id || "none"} | Status:{" "}
-              {round?.status || "none"} | EndTime: {round?.endTime || "none"} |
-              Timer: {timer}s
-            </Typography>
-          </Paper>
-        )}
+        <Typography
+          variant="body2"
+          sx={{ color: "#94a3b8", mb: 3 }}
+        ></Typography>
 
-        {/* Game Status Bar */}
+        {/* Game Modes */}
+        <Box sx={{ mb: 3 }}>
+          <Grid container spacing={1}>
+            {GAME_MODES.map((mode) => (
+              <Grid item xs={6} sm={3} key={mode.value}>
+                <Button
+                  fullWidth
+                  variant={gameMode === mode.value ? "contained" : "outlined"}
+                  onClick={() => setGameMode(mode.value)}
+                  sx={{
+                    py: 1,
+                    backgroundColor:
+                      gameMode === mode.value ? COLORS.primary : "transparent",
+                    color: gameMode === mode.value ? "white" : COLORS.text,
+                    borderColor: COLORS.primary,
+                  }}
+                >
+                  {mode.label}
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+
+        {/* Game Status */}
         <Paper
           sx={{
             p: 2,
             mb: 3,
-            backgroundColor: "#1E1E1E",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderRadius: "12px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+            backgroundColor: "#1e293b",
+            borderRadius: "8px",
+            textAlign: "center",
           }}
         >
-          <Box>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: "bold", color: COLORS.primary }}
-            >
-              {round?.status === PHASES.BETTING
-                ? "BETTING PHASE"
-                : round?.status === PHASES.SPINNING
-                ? "SPINNING"
-                : "RESULTS"}
-            </Typography>
-            <Typography variant="body2" sx={{ color: "#AAA" }}>
-              {round?.status === PHASES.BETTING
-                ? "Place your bet now!"
-                : round?.status === PHASES.SPINNING
-                ? "Wheel is spinning..."
-                : round?.resultColor
-                ? `Winner: ${round.resultColor.toUpperCase()}`
-                : "Calculating results..."}
-            </Typography>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="h6" sx={{ mb: 1, fontWeight: "bold" }}>
+            {round?.status === PHASES.BETTING
+              ? "Place Your Bets"
+              : round?.status === PHASES.SPINNING
+              ? "Spinning..."
+              : "Round Completed"}
+          </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
             <AccessTime sx={{ color: COLORS.primary }} />
-            <Typography variant="h6" sx={{ color: COLORS.primary }}>
-              {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, "0")}
+            <Typography variant="h5" sx={{ fontWeight: "bold" }}>
+              {formatTime(timer)}
             </Typography>
-            <Button
-              size="small"
-              onClick={() => {
-                console.log("Manual timer refresh clicked");
-                if (round?.endTime) {
-                  updateTimerFromRound(round);
-                }
-              }}
-              sx={{ color: COLORS.primary, minWidth: "auto", p: 0.5 }}
-            >
-              🔄
-            </Button>
           </Box>
+
+          {round?.status === PHASES.RESULTS && winningNumber !== null && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6">Winning Number:</Typography>
+              <Typography
+                variant="h3"
+                sx={{
+                  fontWeight: "bold",
+                  color: ['1', '3', '7', '9'].includes(winningNumber)
+                    ? "green"
+                    : ['2', '4', '6', '8'].includes(winningNumber)
+                    ? "red"
+                    : ['0','5'].includes(winningNumber) ? "violet" : null,
+                }}
+              >
+                {winningNumber}
+              </Typography>
+            </Box>
+          )}
         </Paper>
 
+        {/* Game ID */}
+        <Typography
+          variant="body2"
+          sx={{ color: "#94a3b8", textAlign: "center", mb: 3 }}
+        >
+          Game ID: {round?._id || "Loading..."}
+        </Typography>
+
+        {/* Betting Area */}
         <Box
           sx={{
             display: "flex",
@@ -642,266 +536,29 @@ const RouletteGame = () => {
             gap: 3,
           }}
         >
-          {/* Wheel Area */}
+          {/* Left Panel - Color/Number/BigSmall Selection */}
           <Paper
             sx={{
               flex: 1,
-              p: 3,
-              backgroundColor: "#1E1E1E",
-              borderRadius: "12px",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
+              p: 2,
+              backgroundColor: "#1e293b",
+              borderRadius: "8px",
             }}
           >
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold", color : "#fff" }}>
-              COLOR WHEEL
-            </Typography>
-            {/* Wheel Visualization */}
-            <Box sx={{ position: "relative", width: 320, height: 320, mb: 4,  }}>
-              {/* Pointer */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: -18,
-                  left: "calc(50% - 18px)",
-                  width: 0,
-                  height: 0,
-                  borderLeft: "18px solid transparent",
-                  borderRight: "18px solid transparent",
-                  borderBottom: `32px solid ${COLORS.primary}`,
-                  zIndex: 3,
-                  filter: "drop-shadow(0 0 5px rgba(212, 175, 55, 0.8))",
-                }}
-              />
-              <svg
-                width="320"
-                height="320"
-                viewBox="0 0 320 320"
-                style={{
-                  transform: isContinuousSpinning
-                    ? undefined // handled by CSS class
-                    : `rotate(${wheelRotation}deg)`,
-                  transition: isContinuousSpinning
-                    ? undefined
-                    : wheelTransition,
-                  zIndex: 2,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                }}
-                className={isContinuousSpinning ? "wheel-spin-infinite" : ""}
-              >
-                {/* 5 sectors: red, green, blue, yellow, purple */}
-                {/* Each sector is 72 degrees */}
-                {/* Red sector: 0-72 */}
-                <path
-                  d="M160,160 L160,20 A140,140 0 0,1 293.77,85.98 Z"
-                  fill={winningColor ? COLORS[winningColor] : COLORS.red}
-                  className={winningColor ? "wheel-sector-transition" : ""}
-                  stroke="#fff"
-                  strokeWidth="2"
-                />
-                {/* Green sector: 72-144 */}
-                <path
-                  d="M160,160 L293.77,85.98 A140,140 0 0,1 245.98,293.77 Z"
-                  fill={winningColor ? COLORS[winningColor] : COLORS.green}
-                  className={winningColor ? "wheel-sector-transition" : ""}
-                  stroke="#fff"
-                  strokeWidth="2"
-                />
-                {/* Blue sector: 144-216 */}
-                <path
-                  d="M160,160 L245.98,293.77 A140,140 0 0,1 74.02,293.77 Z"
-                  fill={winningColor ? COLORS[winningColor] : COLORS.blue}
-                  className={winningColor ? "wheel-sector-transition" : ""}
-                  stroke="#fff"
-                  strokeWidth="2"
-                />
-                {/* Yellow sector: 216-288 */}
-                <path
-                  d="M160,160 L74.02,293.77 A140,140 0 0,1 26.23,85.98 Z"
-                  fill={winningColor ? COLORS[winningColor] : COLORS.yellow}
-                  className={winningColor ? "wheel-sector-transition" : ""}
-                  stroke="#fff"
-                  strokeWidth="2"
-                />
-                {/* Purple sector: 288-360 */}
-                <path
-                  d="M160,160 L26.23,85.98 A140,140 0 0,1 160,20 Z"
-                  fill={winningColor ? COLORS[winningColor] : COLORS.purple}
-                  className={winningColor ? "wheel-sector-transition" : ""}
-                  stroke="#fff"
-                  strokeWidth="2"
-                />
-                {/* Center circle */}
-                <circle cx="160" cy="160" r="40" fill={COLORS.primary} />
-                {/* Labels */}
-                {/* Red label */}
-                <text
-                  x={160}
-                  y={35}
-                  textAnchor="middle"
-                  fill="white"
-                  fontWeight="bold"
-                  fontSize="18"
-                >
-                  RED
-                </text>
-                {/* Green label */}
-                <text
-                  x={275}
-                  y={90}
-                  textAnchor="middle"
-                  fill="white"
-                  fontWeight="bold"
-                  fontSize="18"
-                >
-                  GREEN
-                </text>
-                {/* Blue label */}
-                <text
-                  x={245}
-                  y={285}
-                  textAnchor="middle"
-                  fill="white"
-                  fontWeight="bold"
-                  fontSize="18"
-                >
-                  BLUE
-                </text>
-                {/* Yellow label */}
-                <text
-                  x={75}
-                  y={285}
-                  textAnchor="middle"
-                  fill="white"
-                  fontWeight="bold"
-                  fontSize="18"
-                >
-                  YELLOW
-                </text>
-                {/* Purple label */}
-                <text
-                  x={45}
-                  y={90}
-                  textAnchor="middle"
-                  fill="white"
-                  fontWeight="bold"
-                  fontSize="18"
-                >
-                  PURPLE
-                </text>
-              </svg>
-            </Box>
-            {/* Results Display */}
-            {round?.status === PHASES.RESULTS && round?.resultColor && (
-              <Box
-                sx={{
-                  p: 2,
-                  width: "100%",
-                  backgroundColor: COLORS[round.resultColor],
-                  borderRadius: "8px",
-                  textAlign: "center",
-                  mb: 2,
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: "bold", color: "white" }}
-                >
-                  WINNER: {round.resultColor.toUpperCase()}
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-          {/* Betting Area */}
-          <Paper
-            sx={{
-              width: isMobile ? "100%" : 350,
-              p: 3,
-              backgroundColor: "#1E1E1E",
-              borderRadius: "12px",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" , color:"#fff"}}>
-              PLACE YOUR BET
-            </Typography>
-            {/* Balance Display */}
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 3,
-                p: 2,
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-                borderRadius: "8px",
-                border: `1px solid ${COLORS.primary}`,
-              }}
+            <Typography
+              variant="h6"
+              sx={{ mb: 2, fontWeight: "bold", textAlign: "center" }}
             >
-              <Typography sx={{ color: "#AAA" }}>BALANCE:</Typography>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <MonetizationOn sx={{ color: COLORS.primary, mr: 1 }} />
-                <Typography sx={{ fontWeight: "bold", color: COLORS.primary }}>
-                  {formatINR(balance)}
-                </Typography>
-              </Box>
-            </Box>
-            {/* Bet Amount Input */}
-            <Box sx={{ mb: 4 }}>
-              <Typography sx={{ mb: 1.5, color: "#AAA" }}>
-                BET AMOUNT:
-              </Typography>
-              <TextField
-                type="number"
-                value={betAmount}
-                onChange={(e) => {
-                  const val = Math.max(1, Math.floor(Number(e.target.value)));
-                  setBetAmount(isNaN(val) ? 1 : val);
-                }}
-                inputProps={{ min: 1, step: 1 }}
-                sx={{
-                  width: "100%",
-                  "& .MuiInputBase-input": {
-                    color: "#fff",
-                    fontWeight: "bold",
-                    background: "#222",
-                    borderRadius: 1,
-                    p: 1,
-                  },
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: COLORS.primary,
-                    },
-                    "&:hover fieldset": {
-                      borderColor: COLORS.primary,
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: COLORS.primary,
-                    },
-                  },
-                }}
-                variant="outlined"
-                placeholder="Enter amount"
-                disabled={round?.status !== PHASES.BETTING || !!selectedBet}
-                error={betAmount > balance}
-                helperText={betAmount > balance ? "Insufficient balance" : " "}
-              />
-            </Box>
-            {/* Color Selection */}
-            <Box sx={{ mb: 4 }}>
-              <Typography sx={{ mb: 1.5, color: "#AAA" }}>
-                SELECT COLOR:
-              </Typography>
-              <Box sx={{ display: "grid", gap: 1.5 }}>
-                {BET_OPTIONS.map((bet) => (
+              Select Color
+            </Typography>
+
+            <Grid container spacing={2}>
+              {BET_OPTIONS.map((bet) => (
+                <Grid item xs={4} key={bet.value}>
                   <Button
-                    key={bet.value}
+                    fullWidth
                     variant={
-                      selectedBet?.value === bet.value
+                      selectedBet?.value === bet.value && betType === "color"
                         ? "contained"
                         : "outlined"
                     }
@@ -910,72 +567,287 @@ const RouletteGame = () => {
                         return;
                       setPendingBet(bet);
                       setConfirmBetOpen(true);
+                      setBetType("color");
                     }}
-                    disabled={
-                      round?.status !== PHASES.BETTING ||
-                      (!!selectedBet && round?.status === PHASES.BETTING) || // Only disable if in betting phase and already has bet
-                      betAmount > balance
-                    }
+                    disabled={round?.status !== PHASES.BETTING || !!selectedBet}
                     sx={{
-                      py: 2,
-                      justifyContent: "space-between",
+                      py: 3,
                       backgroundColor:
-                        selectedBet?.value === bet.value
+                        selectedBet?.value === bet.value && betType === "color"
                           ? bet.color
                           : "transparent",
                       color:
-                        selectedBet?.value === bet.value ? "white" : bet.color,
+                        selectedBet?.value === bet.value && betType === "color"
+                          ? "white"
+                          : bet.color,
                       borderColor: bet.color,
                       "&:hover": {
                         backgroundColor: `${bet.color}20`,
                       },
                     }}
                   >
-                    <span>{bet.label}</span>
-                    <span>2x</span>
+                    {bet.label}
                   </Button>
-                ))}
-              </Box>
-            </Box>
-            {/* Current Bet Display */}
+                </Grid>
+              ))}
+            </Grid>
+
+            <Typography
+              variant="h6"
+              sx={{ mt: 3, mb: 2, fontWeight: "bold", textAlign: "center" }}
+            >
+              Big/Small
+            </Typography>
+
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Button
+                  fullWidth
+                  variant={
+                    selectedBet?.value === "big" && betType === "bigSmall"
+                      ? "contained"
+                      : "outlined"
+                  }
+                  onClick={() => {
+                    if (round?.status !== PHASES.BETTING || selectedBet) return;
+                    setPendingBet({
+                      label: "Big",
+                      value: "big",
+                      color: COLORS.primary,
+                      payout: 1.9,
+                    });
+                    setConfirmBetOpen(true);
+                    setBetType("bigSmall");
+                  }}
+                  disabled={round?.status !== PHASES.BETTING || !!selectedBet}
+                  sx={{
+                    py: 2,
+                    backgroundColor:
+                      selectedBet?.value === "big" && betType === "bigSmall"
+                        ? COLORS.primary
+                        : "transparent",
+                    color:
+                      selectedBet?.value === "big" && betType === "bigSmall"
+                        ? "white"
+                        : COLORS.primary,
+                    borderColor: COLORS.primary,
+                  }}
+                >
+                  Big
+                </Button>
+              </Grid>
+              <Grid item xs={6}>
+                <Button
+                  fullWidth
+                  variant={
+                    selectedBet?.value === "small" && betType === "bigSmall"
+                      ? "contained"
+                      : "outlined"
+                  }
+                  onClick={() => {
+                    if (round?.status !== PHASES.BETTING || selectedBet) return;
+                    setPendingBet({
+                      label: "Small",
+                      value: "small",
+                      color: COLORS.primary,
+                      payout: 1.9,
+                    });
+                    setConfirmBetOpen(true);
+                    setBetType("bigSmall");
+                  }}
+                  disabled={round?.status !== PHASES.BETTING || !!selectedBet}
+                  sx={{
+                    py: 2,
+                    backgroundColor:
+                      selectedBet?.value === "small" && betType === "bigSmall"
+                        ? COLORS.primary
+                        : "transparent",
+                    color:
+                      selectedBet?.value === "small" && betType === "bigSmall"
+                        ? "white"
+                        : COLORS.primary,
+                    borderColor: COLORS.primary,
+                  }}
+                >
+                  Small
+                </Button>
+              </Grid>
+            </Grid>
+
+            {/* Number Bet */}
+            <Typography
+              variant="h6"
+              sx={{ mt: 3, mb: 2, fontWeight: "bold", textAlign: "center" }}
+            >
+              Number
+            </Typography>
+            <Grid container spacing={1}>
+              {NUMBER_OPTIONS.map((num) => (
+                <Grid item xs={2.4} sm={1.2} md={1.2} key={num.value}>
+                  <Button
+                    fullWidth
+                    variant={
+                      selectedBet?.value === num.value && betType === "number"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    onClick={() => {
+                      if (round?.status !== PHASES.BETTING || selectedBet)
+                        return;
+                      setPendingBet({
+                        label: num.label,
+                        value: num.value,
+                        color: num.color,
+                        payout: num.payout,
+                      });
+                      setChosenNumber(num.value);
+                      setConfirmBetOpen(true);
+                      setBetType("number");
+                    }}
+                    disabled={round?.status !== PHASES.BETTING || !!selectedBet}
+                    sx={{
+                      py: 1,
+                      backgroundColor:
+                        selectedBet?.value === num.value && betType === "number"
+                          ? num.color
+                          : "transparent",
+                      color:
+                        selectedBet?.value === num.value && betType === "number"
+                          ? "white"
+                          : num.color,
+                      borderColor: num.color,
+                      minWidth: 0,
+                      "&:hover": {
+                        backgroundColor: `${num.color}20`,
+                      },
+                    }}
+                  >
+                    {num.label}
+                  </Button>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+
+          {/* Right Panel - Bet Controls */}
+          <Paper
+            sx={{
+              width: isMobile ? "100%" : 300,
+              p: 2,
+              backgroundColor: "#1e293b",
+              borderRadius: "8px",
+            }}
+          >
+            {/* Balance */}
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 mb: 3,
-                p: 2,
-                backgroundColor: "rgba(0, 0, 0, 0.3)",
-                borderRadius: "8px",
               }}
             >
-              <Typography sx={{ color: "#AAA" }}>YOUR BET:</Typography>
-              <Typography sx={{ fontWeight: "bold", color : "#fff" }}>
-                {selectedBet
-                  ? `${selectedBet.label} (${formatINR(selectedBet.amount)})`
-                  : "None"}
+              <Typography>Balance:</Typography>
+              <Typography sx={{ fontWeight: "bold" }}>
+                {formatINR(balance)}
               </Typography>
             </Box>
+
+            {/* Bet Amount */}
+            <Box sx={{ mb: 3 }}>
+              <Typography sx={{ mb: 1 }}>Bet Amount:</Typography>
+              <TextField
+                fullWidth
+                type="number"
+                value={betAmount}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.floor(Number(e.target.value)));
+                  setBetAmount(isNaN(val) ? 1 : val);
+                }}
+                inputProps={{ min: 1, step: 1 }}
+                sx={{
+                  "& .MuiInputBase-input": {
+                    color: "white",
+                    background: "#334155",
+                    borderRadius: 1,
+                    p: 1,
+                  },
+                }}
+                variant="outlined"
+                disabled={round?.status !== PHASES.BETTING || !!selectedBet}
+              />
+            </Box>
+
+            {/* Multipliers */}
+            <Box sx={{ mb: 3 }}>
+              <Typography sx={{ mb: 1 }}>Multiplier:</Typography>
+              <Grid container spacing={1}>
+                {MULTIPLIERS.map((mult) => (
+                  <Grid item xs={4} key={mult}>
+                    <Button
+                      fullWidth
+                      variant={multiplier === mult ? "contained" : "outlined"}
+                      onClick={() => setMultiplier(mult)}
+                      disabled={
+                        round?.status !== PHASES.BETTING || !!selectedBet
+                      }
+                      sx={{
+                        py: 1,
+                        backgroundColor:
+                          multiplier === mult ? COLORS.primary : "transparent",
+                        color: multiplier === mult ? "white" : COLORS.text,
+                        borderColor: COLORS.primary,
+                      }}
+                    >
+                      {mult}
+                    </Button>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+
+            {/* Current Bet */}
+            {selectedBet && (
+              <Paper
+                sx={{
+                  p: 2,
+                  mb: 2,
+                  backgroundColor: "#334155",
+                  borderRadius: "8px",
+                }}
+              >
+                <Typography sx={{ fontWeight: "bold" }}>Your Bet:</Typography>
+                <Typography>
+                  {betType === "number"
+                    ? `Number ${selectedBet.value}`
+                    : selectedBet.label}{" "}
+                  ({formatINR(selectedBet.amount)})
+                </Typography>
+              </Paper>
+            )}
           </Paper>
         </Box>
+
         {/* Bet Confirmation Dialog */}
         <Dialog
           open={confirmBetOpen}
           onClose={() => setConfirmBetOpen(false)}
           PaperProps={{
             sx: {
-              backgroundColor: "#1E1E1E",
+              backgroundColor: "#1e293b",
               color: COLORS.text,
-              border: `1px solid ${COLORS.primary}`,
             },
           }}
         >
           <DialogTitle>Confirm Bet</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Place {formatINR(betAmount)} on{" "}
+              Place {formatINR(betAmount * parseInt(multiplier.substring(1)))}{" "}
+              on{" "}
               <span style={{ color: pendingBet?.color }}>
-                {pendingBet?.label}
+                {betType === "number"
+                  ? `Number ${chosenNumber}`
+                  : pendingBet?.label}
               </span>
               ?
             </DialogContentText>
@@ -992,6 +864,7 @@ const RouletteGame = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
         {/* Snackbar Notifications */}
         <Snackbar
           open={snackbar.open}
@@ -1012,4 +885,4 @@ const RouletteGame = () => {
   );
 };
 
-export default RouletteGame;
+export default WinGoGame;

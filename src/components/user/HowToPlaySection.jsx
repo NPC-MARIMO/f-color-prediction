@@ -6,8 +6,8 @@ const steps = [
   {
     icon: <Eye size={32} />,
     step: 'Step 1',
-    title: 'Observe the ChromaOrb',
-    description: 'Watch the mystical ChromaOrb as it prepares to reveal its next color. Study the patterns and trust your intuition.',
+    title: 'Observe the Win2Win',
+    description: 'Watch the mystical Win2Win as it prepares to reveal its next color. Study the patterns and trust your intuition.',
     color: '#D4AF37',
   },
   {
@@ -21,7 +21,7 @@ const steps = [
     icon: <Sparkles size={32} />,
     step: 'Step 3',
     title: 'The Color Reveals',
-    description: 'Watch in anticipation as the ChromaOrb unveils its chosen color. The magic happens in real-time!',
+    description: 'Watch in anticipation as the Win2Win unveils its chosen color. The magic happens in real-time!',
     color: '#00C897',
   },
   {
@@ -104,7 +104,7 @@ const HowToPlaySection = () => {
             🎯 Pro Tip for Aspiring Color Seers
           </Typography>
           <Typography variant="body1" sx={{ fontSize: '1.1rem', color: '#CCCCCC' }}>
-            Start with smaller bets to understand the ChromaOrb's patterns. Many legendary seers began their journey with careful observation and patience. 
+            Start with smaller bets to understand the Win2Win's patterns. Many legendary seers began their journey with careful observation and patience. 
             Remember, even the greatest prophets had to learn to read the signs!
           </Typography>
         </Box>

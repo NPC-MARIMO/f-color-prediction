@@ -63,7 +63,6 @@ const AdminDashboard = () => {
       setError('');
       try {
         const response = await apiService.getAdminDashboard();
-        console.log(response);
         
         // Support both { data: ... } and direct object
         setDashboard(response?.data?.dashboard);
@@ -402,7 +401,6 @@ const AdminDashboard = () => {
                       <TableCell sx={{ color: COLORS.primary }}>Email</TableCell>
                       <TableCell sx={{ color: COLORS.primary }}>Joined</TableCell>
                       <TableCell sx={{ color: COLORS.primary }}>Status</TableCell>
-                      <TableCell sx={{ color: COLORS.primary }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -431,20 +429,7 @@ const AdminDashboard = () => {
                               }}
                             />
                           </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: "flex", gap: 1 }}>
-                              <Tooltip title="View Details">
-                                <IconButton
-                                  size="small"
-                                  sx={{ color: COLORS.primary }}
-                                  component={Link}
-                                  to={`/admin/users/${user._id}`}
-                                >
-                                  <Visibility />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
-                          </TableCell>
+                       
                         </TableRow>
                       ))
                     )}

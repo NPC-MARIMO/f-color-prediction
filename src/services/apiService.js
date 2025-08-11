@@ -2,7 +2,6 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-
 class ApiService {
   constructor() {
     this.api = axios.create({
@@ -106,6 +105,19 @@ class ApiService {
     });
     return response.data;
   }
+
+  // --- Added: Place bet on current round (supports color, number, size) ---
+  async placeBetOnCurrentRound(betData) {
+    const userId = this.getUserId();
+    const response = await this.api.post('/api/game/place-bet', betData, {
+      headers: {
+        'User-Id': userId,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  }
+  // --- End Added ---
 
   async getGameHistory(page = 1, limit = 10) {
     const userId = this.getUserId();
@@ -367,7 +379,6 @@ class ApiService {
   // Utility methods
   getUserId() {
     const user = JSON.parse(localStorage.getItem('auth') || '{}');
-    console.log(user);
     return user.user.user?.id || user.user.user?._id;
     
   }
