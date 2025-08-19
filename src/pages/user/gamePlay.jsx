@@ -572,17 +572,12 @@ const WinGoGame = () => {
                     disabled={round?.status !== PHASES.BETTING || !!selectedBet}
                     sx={{
                       py: 3,
-                      backgroundColor:
-                        selectedBet?.value === bet.value && betType === "color"
-                          ? bet.color
-                          : "transparent",
-                      color:
-                        selectedBet?.value === bet.value && betType === "color"
-                          ? "white"
-                          : bet.color,
+                      backgroundColor: bet.color,
+                      color: "white",
                       borderColor: bet.color,
                       "&:hover": {
-                        backgroundColor: `${bet.color}20`,
+                        backgroundColor: bet.color,
+                        color: "white",
                       },
                     }}
                   >
@@ -613,7 +608,7 @@ const WinGoGame = () => {
                     setPendingBet({
                       label: "Big",
                       value: "big",
-                      color: COLORS.primary,
+                      color: "#ffaa57",
                       payout: 1.9,
                     });
                     setConfirmBetOpen(true);
@@ -622,15 +617,13 @@ const WinGoGame = () => {
                   disabled={round?.status !== PHASES.BETTING || !!selectedBet}
                   sx={{
                     py: 2,
-                    backgroundColor:
-                      selectedBet?.value === "big" && betType === "bigSmall"
-                        ? COLORS.primary
-                        : "transparent",
-                    color:
-                      selectedBet?.value === "big" && betType === "bigSmall"
-                        ? "white"
-                        : COLORS.primary,
-                    borderColor: COLORS.primary,
+                    backgroundColor: "#ffaa57",
+                    color: "white",
+                    borderColor: "#ffaa57",
+                    "&:hover": {
+                      backgroundColor: "#ffaa57",
+                      color: "white",
+                    },
                   }}
                 >
                   Big
@@ -649,7 +642,7 @@ const WinGoGame = () => {
                     setPendingBet({
                       label: "Small",
                       value: "small",
-                      color: COLORS.primary,
+                      color: "#6ea7f4",
                       payout: 1.9,
                     });
                     setConfirmBetOpen(true);
@@ -658,15 +651,13 @@ const WinGoGame = () => {
                   disabled={round?.status !== PHASES.BETTING || !!selectedBet}
                   sx={{
                     py: 2,
-                    backgroundColor:
-                      selectedBet?.value === "small" && betType === "bigSmall"
-                        ? COLORS.primary
-                        : "transparent",
-                    color:
-                      selectedBet?.value === "small" && betType === "bigSmall"
-                        ? "white"
-                        : COLORS.primary,
-                    borderColor: COLORS.primary,
+                    backgroundColor: "#6ea7f4",
+                    color: "white",
+                    borderColor: "#6ea7f4",
+                    "&:hover": {
+                      backgroundColor: "#6ea7f4",
+                      color: "white",
+                    },
                   }}
                 >
                   Small
@@ -683,9 +674,15 @@ const WinGoGame = () => {
             </Typography>
             <Grid container spacing={1}>
               {NUMBER_OPTIONS.map((num) => (
-                <Grid item xs={2.4} sm={1.2} md={1.2} key={num.value}>
+                <Grid
+                  item
+                  xs={2.4}
+                  sm={1.2}
+                  md={1.2}
+                  key={num.value}
+                  sx={{ display: "flex", justifyContent: "center" }}
+                >
                   <Button
-                    fullWidth
                     variant={
                       selectedBet?.value === num.value && betType === "number"
                         ? "contained"
@@ -706,19 +703,44 @@ const WinGoGame = () => {
                     }}
                     disabled={round?.status !== PHASES.BETTING || !!selectedBet}
                     sx={{
-                      py: 1,
-                      backgroundColor:
-                        selectedBet?.value === num.value && betType === "number"
-                          ? num.color
-                          : "transparent",
-                      color:
-                        selectedBet?.value === num.value && betType === "number"
-                          ? "white"
-                          : num.color,
-                      borderColor: num.color,
+                      py: 0,
                       minWidth: 0,
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      backgroundColor: (() => {
+                        if (['1', '3', '7', '9'].includes(num.value)) return "green";
+                        if (['2', '4', '6', '8'].includes(num.value)) return "red";
+                        if (['0', '5'].includes(num.value)) return "violet";
+                        return num.color;
+                      })(),
+                      color: "white",
+                      borderColor: (() => {
+                        if (['1', '3', '7', '9'].includes(num.value)) return "green";
+                        if (['2', '4', '6', '8'].includes(num.value)) return "red";
+                        if (['0', '5'].includes(num.value)) return "violet";
+                        return num.color;
+                      })(),
+                      fontWeight:
+                        selectedBet?.value === num.value && betType === "number"
+                          ? "bold"
+                          : "normal",
+                      fontSize: 20,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow:
+                        selectedBet?.value === num.value && betType === "number"
+                          ? "0 0 0 2px #fff, 0 0 8px 2px #fff"
+                          : undefined,
                       "&:hover": {
-                        backgroundColor: `${num.color}20`,
+                        backgroundColor: (() => {
+                          if (['1', '3', '7', '9'].includes(num.value)) return "#008000cc";
+                          if (['2', '4', '6', '8'].includes(num.value)) return "#ff0000cc";
+                          if (['0', '5'].includes(num.value)) return "#8f00ffcc";
+                          return `${num.color}cc`;
+                        })(),
+                        color: "white",
                       },
                     }}
                   >
